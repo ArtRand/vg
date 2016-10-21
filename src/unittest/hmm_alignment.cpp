@@ -21,7 +21,7 @@ using namespace google::protobuf;
 namespace vg {
     namespace unittest {
         TEST_CASE( "HmmAligner setup tests", "[hmm][current]" ) {
-            SECTION( "HMM aligner makes correct HmmGraph" ) {
+            SECTION( "HMM aligner makes correct HmmGraph with all normal edges" ) {
                 VG graph;
                 
                 Node* n0 = graph.create_node("AGTG");
@@ -38,7 +38,21 @@ namespace vg {
                 
                 // test that the internal graph has a node for each nucleoide in the Graph
                 REQUIRE(hmm.hmm_graph.K() == 12);
-                
+            }
+            SECTION( "HMM aligner makes correct HmmGraph with backwards edges" ) {
+                VG graph;
+
+                Node *n0 = graph.create_node("AA");
+                Node *n1 = graph.create_node("CC");
+                Node *n2 = graph.create_node("GG");
+                Node *n3 = graph.create_node("TT");
+
+                graph.create_edge(n0, n2, false, false);
+                graph.create_edge(n1, n0, true, true);
+                graph.create_edge(n1, n2, false, false);
+                graph.create_edge(n2, n3, false, false);
+
+                HmmAligner hmm(graph.graph);
 
 
             }

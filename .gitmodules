@@ -67,3 +67,6 @@
 [submodule "deps/sonLib"]
 	path = deps/sonLib
 	url = https://github.com/benedictpaten/sonLib.git
+[submodule "deps/Parcours"]
+	path = deps/Parcours
+	url = https://github.com/ArtRand/Parcours.git
