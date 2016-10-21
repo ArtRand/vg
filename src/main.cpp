@@ -9248,7 +9248,7 @@ void vg_help(char** argv) {
          << endl
          << "usage: " << argv[0] << " <command> [options]" << endl
          << endl
-         << "commands:" << endl
+         << "commands: (look at all of them ! )" << endl
          << "  -- construct     graph construction" << endl
          << "  -- deconstruct   convert a graph into VCF relative to a reference." << endl
          << "  -- view          format conversions for graphs and alignments" << endl

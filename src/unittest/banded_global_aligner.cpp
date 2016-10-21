@@ -2159,7 +2159,7 @@ namespace vg {
                 REQUIRE(found_second_opt);
             }
             
-            SECTION( "Global banded aligner does not produce duplicate alternate alignments" ) {
+            SECTION( "Banded global aligner does not produce duplicate alternate alignments" ) {
                 
                 VG graph;
                 

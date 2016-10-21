@@ -70,7 +70,7 @@ namespace vg {
 
 // Represents a sequence graph. Graphs consist of nodes, connected by edges.
 // Graphs are bidirected and may be cyclic. Nodes carry forward-oriented
-// sequences. Edges are directed, with a "from" and to" node, and are generally
+// sequences. Edges are directed, with a "from" and "to" node, and are generally
 // used to connect the end of the "from" node to the start of the "to" node.
 // However, edges can connect to either the start or end of either node, in
 // general, as long as they do not allow the same node to be visited twice along
