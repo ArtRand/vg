@@ -42,10 +42,10 @@ namespace vg {
             SECTION( "HMM aligner makes correct HmmGraph with backwards edges" ) {
                 VG graph;
 
-                Node *n0 = graph.create_node("AA");
-                Node *n1 = graph.create_node("CC");
-                Node *n2 = graph.create_node("GG");
-                Node *n3 = graph.create_node("TT");
+                Node *n0 = graph.create_node("A");
+                Node *n1 = graph.create_node("C");
+                Node *n2 = graph.create_node("G");
+                Node *n3 = graph.create_node("T");
 
                 graph.create_edge(n0, n2, false, false);
                 graph.create_edge(n1, n0, true, true);
