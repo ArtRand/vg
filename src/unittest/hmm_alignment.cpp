@@ -24,6 +24,8 @@ namespace vg {
             SECTION( "HMM aligner makes correct HmmGraph with all normal edges" ) {
                 VG graph;
                 
+                st_uglyf("starting hmm test\n");
+
                 Node* n0 = graph.create_node("AGTG");
                 Node* n1 = graph.create_node("C");
                 Node* n2 = graph.create_node("A");
