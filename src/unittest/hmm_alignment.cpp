@@ -39,6 +39,7 @@ namespace vg {
                 // test that the internal graph has a node for each nucleoide in the Graph
                 REQUIRE(hmm.hmm_graph.K() == 12);
             }
+
             SECTION( "HMM aligner makes correct HmmGraph with backwards edges" ) {
                 VG graph;
 

@@ -2012,7 +2012,7 @@ void BandedGlobalAligner<IntType>::align(int8_t* score_mat, int8_t* nt_table, in
     
     
     // fill each nodes matrix in topological order
-    //for (Node* node : topological_order) {
+    // for (Node* node : topological_order) {
     for (int64_t i = 0; i < topological_order.size(); i++) {
         Node* node = topological_order[i];
         int64_t node_idx = node_id_to_idx.at(node->id());

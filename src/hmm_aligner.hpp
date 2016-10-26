@@ -12,6 +12,7 @@
 
 #include "vg.pb.h"
 #include "utility.hpp"             // nonACGTNtoN
+
 #include "Parcours/hmm_graph.h"
 #include "Parcours/common.h"       // st_uglyf 
 
