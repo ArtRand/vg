@@ -46,7 +46,6 @@ HmmAligner::HmmAligner(Graph& G) {
             hmm_graph.AddArc(toVertex, fromVertex);
         }
     }
-
 }
 
 HmmAligner::~HmmAligner() {};
