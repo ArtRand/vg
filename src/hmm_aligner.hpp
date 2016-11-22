@@ -14,7 +14,6 @@
 #include "utility.hpp"             // nonACGTNtoN
 
 #include "Parcours/hmm_graph.h"
-#include "Parcours/common.h"       // st_uglyf 
 
 namespace vg {
    class HmmAligner {
@@ -23,10 +22,13 @@ namespace vg {
         
         ~HmmAligner();
         
-        HmmGraph hmm_graph;
+        int64_t Graph_K();
+        
     private:
         std::unordered_map<int64_t, int64_t> id_to_index;
-        
+        // maps the nodeId from VG::Graph to VertexId in HmmGraph
+        std::unordered_map<int64_t, int64_t> nodeId_to_vertexId;
+        HmmGraph hmm_graph;
     };
 };
 
