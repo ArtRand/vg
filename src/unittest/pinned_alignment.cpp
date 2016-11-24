@@ -19,9 +19,9 @@ namespace vg {
     namespace unittest {
         
         TEST_CASE( "Pinned alignment produces correct alignments with different types of edits",
-                  "[alignment][pinned][mapping]" ) {
+                  "[alignment][pinned][mapping][current]" ) {
             
-            SECTION( "Pinned alignment produces correct alignment when read matches exactly") {
+            SECTION( "Pinned alignment produces correct alignment when read matches exactly" ) {
                 
                 VG graph;
                 
@@ -75,6 +75,7 @@ namespace vg {
                 REQUIRE(path.mapping(2).edit(0).from_length() == 6);
                 REQUIRE(path.mapping(2).edit(0).to_length() == 6);
                 REQUIRE(path.mapping(2).edit(0).sequence().empty());
+                exit(0);
             }
             
             SECTION( "Pinned alignment produces same alignment for an exact match regardless of left or right pinning") {

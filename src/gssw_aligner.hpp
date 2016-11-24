@@ -13,6 +13,7 @@
 #include "Fasta.h"
 #include "path.hpp"
 #include "banded_global_aligner.hpp"
+#include "sonLib.h"
 
 namespace vg {
 

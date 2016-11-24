@@ -314,15 +314,14 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
     alignment.set_score(gm->score);
     alignment.set_query_position(0);
     Path* path = alignment.mutable_path();
-    //alignment.set_cigar(graph_cigar(gm));
 
     gssw_graph_cigar* gc = &gm->cigar;
     gssw_node_cigar* nc = gc->elements;
     int to_pos = 0;
+    // set initial position to the first aligned position in the mapping
     int from_pos = gm->position;
-    //cerr << "gm->position " << gm->position << endl;
-    string& to_seq = *alignment.mutable_sequence();
-    //cerr << "-------------" << endl;
+
+    string& to_seq = *alignment.mutable_sequence();  // the read sequence we're aligning to the graph
 
     if (print_score_matrices) {
         gssw_graph_print_score_matrices(graph, to_seq.c_str(), to_seq.size(), stderr);
@@ -330,7 +329,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
     }
     
     for (int i = 0; i < gc->length; ++i, ++nc) {
-        
         if (i > 0) from_pos = 0; // reset for each node after the first
         // check that the current alignment has a non-zero length
         gssw_cigar* c = nc->cigar;
@@ -338,37 +336,43 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         if (l == 0) continue;
         gssw_cigar_element* e = c->elements;
 
-        Node* from_node = (Node*) nc->node->data;
+        Node* from_node = (Node*) nc->node->data;  // node from the VG graph
+        st_uglyf("at i = %d looking at node: ", i); cerr << from_node->id() << endl;
         string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
-        mapping->mutable_position()->set_node_id(nc->node->id);
+        st_uglyf("start mapping: %s\n", mapping->DebugString().c_str());
+        // 'map' the node ID from the gssw graph to the position
+        mapping->mutable_position()->set_node_id(nc->node->id); 
+        // set the offset 
         mapping->mutable_position()->set_offset(from_pos);
+        // rank is the order?
         mapping->set_rank(path->mapping_size());
-
+        st_uglyf("later mapping: %s\n", mapping->DebugString().c_str());
         //cerr << from_node->id() << ":" << endl;
 
         for (int j=0; j < l; ++j, ++e) {
             Edit* edit;
             int32_t length = e->length;
-            //cerr << e->length << e->type << endl;
+            cerr << e->length << e->type << endl;
             
             switch (e->type) {
             case 'M':
             case 'X':
             case 'N': {
-                // do the sequences match?
                 // emit a stream of "SNPs" and matches
                 int h = from_pos;
                 int last_start = from_pos;
                 int k = to_pos;
+                // walk over the edits
                 for ( ; h < from_pos + length; ++h, ++k) {
-                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+                    cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
                     if (from_seq[h] != to_seq[k]) {
                         // emit the last "match" region
                         if (h-last_start > 0) {
                             edit = mapping->add_edit();
                             edit->set_from_length(h-last_start);
                             edit->set_to_length(h-last_start);
+                            cerr << edit->DebugString() << endl;
                         }
                         // set up the SNP
                         edit = mapping->add_edit();
@@ -386,6 +390,7 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                 }
                 to_pos += length;
                 from_pos += length;
+                cerr << "mapping at end of loop: " << mapping->DebugString() << endl;
             } break;
             case 'D':
                 edit = mapping->add_edit();
