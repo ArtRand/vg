@@ -25,23 +25,35 @@ namespace vg {
         
         int64_t Graph_K();
 
+        // Aligns the sequence in aln to the graph, if path_alignments != nullptr
+        // then it adds alignments from all paths, otherwise it just adds the 
+        // highest scoring path (TODO add get_pairs into AlignmentParameters?)
         void Align(Alignment& aln, std::vector<Alignment>* path_alignments, 
-                   AlignmentParameters& p, bool get_pairs=true);
+                   AlignmentParameters& p, bool get_pairs=true);  // TODO not implemented
+
+        void Align(Alignment&, AlignmentParameters& p, bool get_pairs=true);
+
+        void PrintAlignedPairs();
 
     private:
-        // maps the nodeId from VG::Graph to VertexId in HmmGraph
-        std::unordered_map<int64_t, int64_t> nodeId_to_vertexId;
-        // TODO might need to keep track of nodes from the VG graph..?
-        std::unordered_map<int64_t, Node*> node_map;
-
+        // Containers
+        //
+        // maps the nodeId from VG::Graph to VertexId in HmmGraph and vice-versa
+        std::unordered_map<int64_t, int64_t> nodeId_to_vertexId;  // (Vg_node_id, hmm_graph_node_id)
+        std::unordered_map<int64_t, int64_t> vertexId_to_nodeId;  // (hmm_graph_node_id, Vg_node_id)
+        // interface point to Parcours
         HmmGraph hmm_graph;
-        bool _reversed;
 
-        /*
-         * Internal Methods
-         */
-        void reverse_hmm_graph();
-        void graph_aligned_pairs_to_alignment(Alignment&);
+        // counters and flags
+        //
+        
+        // Internal Methods
+        //
+        // converts the alignement in GraphAlignedPairs to a VG alignment object, pId is the 
+        // path to use (pathId)
+        void makeAlignmentFromAlignedPairs(Alignment&, int64_t pId);
+        std::unordered_map<int64_t, AlignedPairs> mapAlignedPairsToVgNodes(int64_t pId);
+        std::vector<double> pathScoresVector();
     };
 };
 

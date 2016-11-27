@@ -81,7 +81,7 @@ namespace vg {
         }
         
         TEST_CASE( "HMM alignment produces correct alignments with different types of edits",
-                  "[hmm]" ) {
+                  "[hmm][current]" ) {
             SECTION( "HMM alignment produces correct alignment when read matches exactly") {
                 
                 VG graph;

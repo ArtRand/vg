@@ -19,7 +19,7 @@ namespace vg {
     namespace unittest {
         
         TEST_CASE( "Pinned alignment produces correct alignments with different types of edits",
-                  "[alignment][pinned][mapping][current]" ) {
+                  "[alignment][pinned][mapping]" ) {
             
             SECTION( "Pinned alignment produces correct alignment when read matches exactly" ) {
                 
@@ -54,6 +54,7 @@ namespace vg {
                     REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
                 }
                 else {
+                    st_uglyf("SENTINAL not pinned\n");
                     REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
                     REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
                 }

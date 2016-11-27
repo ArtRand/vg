@@ -20,6 +20,7 @@ HmmAligner::HmmAligner(Graph& G, bool reversed) {
         // add the vertex to the HmmGraph and add the node id (from the orig. graph) tothe hash 
         int64_t vId = hmm_graph.AddVertex(&n->sequence());
         nodeId_to_vertexId[n->id()] = vId;
+        vertexId_to_nodeId[vId] = n->id();
     }
     
     if (hmm_graph.K() != G.node_size()) throw ParcoursException(
@@ -54,7 +55,6 @@ HmmAligner::HmmAligner(Graph& G, bool reversed) {
             throw ParcoursException("[HmmAligner::HmmAligner] Reversing edges not supported, yet\n");
         }
     }
-    _reversed = reversed;
 }
 
 HmmAligner::~HmmAligner() {};
@@ -66,25 +66,84 @@ void HmmAligner::Align(Alignment& aln, std::vector<Alignment>* path_alignments,
     // step 1: align the sequence to the graph with the HMM
     std::string* sx = aln.mutable_sequence();
     if (sx->length() <= 0) return;
+    // TODO need try/catch here:
     hmm_graph.AlignWithFiveStateSymbolHmm((*sx), p, get_pairs);
-    for (auto kv : hmm_graph.PathAlignedPairs()) {
-        st_uglyf("path %lld score: %f\n", kv.first, hmm_graph.PathScores()[kv.first]);
-        for (auto p : kv.second) {
-            st_uglyf("x: %lld vertex: %lld offset %lld p: %f\n", 
-                      std::get<1>(p), std::get<2>(p).first, std::get<2>(p).second, std::get<0>(p));
-        }
-    }
+    PrintAlignedPairs();
     // step 2: if not doing multi-path alignment, just add the one with the max score
     if (!path_alignments) {
-        graph_aligned_pairs_to_alignment(aln);
+        auto max_pathId = hmm_graph.MaxScorePath();
+        makeAlignmentFromAlignedPairs(aln, max_pathId);
     } else {
         throw ParcoursException("HmmAligner::Align multipath not implemented");  
     }
 }
 
-void HmmAligner::graph_aligned_pairs_to_alignment(Alignment& aln) {
+void HmmAligner::PrintAlignedPairs() {
+    auto& graph_aligned_pairs = hmm_graph.PathAlignedPairs();
+    if (graph_aligned_pairs.size() == 0) std::cerr << "[HmmAligner::PrintAlignedPairs] No GraphAlignedPairs\n";
+    auto graph_path_scores   = hmm_graph.PathScores();
+    int64_t most_prob_path   = hmm_graph.MaxScorePath();
+
+    for (auto kv : graph_aligned_pairs) {
+        std::cerr << "path: " << kv.first << " score: " << graph_path_scores[kv.first];
+        if (kv.first == most_prob_path) std::cerr << " <-- Highest Score Path\n";
+        else std::cerr << "\n";
+        for (auto p : kv.second) {
+            int64_t x_coord = std::get<1>(p);
+            int64_t vid     = std::get<2>(p).first;
+            int64_t offset  = std::get<2>(p).second;
+            double prob     = std::get<0>(p)/PAIR_ALIGNMENT_PROB_1;
+            std::cerr << "x: " << x_coord << " vertexID: " << vid << 
+                " offset: " << offset << " prob: " << prob << std::endl;
+        }
+    }
+}
+
+void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
     // setup alignment (clear, establish score, etc)
-    //aln.clear_path();
-    //aln.set_score()
-    // Go thought 
+    aln.clear_path();
+    aln.set_score(hmm_graph.PathScores()[pId] * PAIR_ALIGNMENT_PROB_1);
+    // an Alignment has one Path, so add that
+    Path *aln_path = aln.mutable_path();
+    auto mapped_pairs = mapAlignedPairsToVgNodes(pId);
+    // TODO TODO left off here, 
+    // TODO go through the vertexPath (from the HmmGraph) and make the alignment from the 
+    // TODO graph aligned pairs
+}
+
+std::unordered_map<int64_t, AlignedPairs> HmmAligner::mapAlignedPairsToVgNodes(int64_t pId) {
+    std::unordered_map<int64_t, AlignedPairs> mapped_pairs;  // (vg_node_id, AlignedPairs)
+    // Get the GraphAligedPairs for this path
+    GraphAlignedPairs& graph_aligned_pairs = hmm_graph.PathAlignedPairs()[pId];
+    st_uglyf("SENTINAL mapping path %lld, got %lld pairs\n", pId, graph_aligned_pairs.size());
+    if (graph_aligned_pairs.size() == 0) return mapped_pairs;  // there are no aligned pairs to this path
+    // map the vertex to to the VG node, and the offset becomes the `y` in the aligned pair
+    for (GraphAlignedPair& gpair : graph_aligned_pairs) {
+        double posterior_prob = std::get<0>(gpair);
+        int64_t x             = std::get<1>(gpair);
+        int64_t vid           = std::get<2>(gpair).first;
+        int64_t offset        = std::get<2>(gpair).second;
+        int64_t vg_node_id    = vertexId_to_nodeId[vid];
+        st_uglyf("x: %lld vid: %lld offset: %lld vg_node_id: %lld, prob: %f\n", 
+                 x, vid, offset, vg_node_id, posterior_prob);
+        AlignedPair aligned_pair = std::make_tuple(posterior_prob, x, offset);
+        mapped_pairs[vg_node_id].push_back(aligned_pair);
+    }
+    return mapped_pairs;
+}
+
+std::vector<double> HmmAligner::pathScoresVector() {
+    auto path_scores_map = hmm_graph.PathScores();
+    std::vector<double> scores;
+    scores.reserve(path_scores_map.size());
+    
+    std::transform(begin(path_scores_map), end(path_scores_map), begin(scores), 
+                   [] (std::pair<int64_t, double> p) { return p.second; });
+    
+    std::sort(begin(scores), end(scores), [](double i, double j) { return i > j; });
+
+    for (auto i : scores) st_uglyf("%lld \n", i);
+
+    return scores;
+
 }

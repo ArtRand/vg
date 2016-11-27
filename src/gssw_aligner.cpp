@@ -155,6 +155,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     
     // traceback either from pinned position or optimal local alignment
     if (pinned_node) {
+        st_uglyf("SENTINAL pinned node TRUE\n");
         // trace back pinned alignment
         gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_multi (graph,
                                                                        pinned_node,
@@ -177,6 +178,7 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         // convert optimal alignment and store it in the input Alignment object (in the multi alignment,
         // this will have been set to the first in the vector)
         if (gms[0]->score > 0) {
+            st_uglyf("SENTINAL single mapping\n");
             // have a mapping, can just convert normally
             gssw_mapping_to_alignment(graph, gms[0], alignment, print_score_matrices);
         }
@@ -341,12 +343,14 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
         st_uglyf("start mapping: %s\n", mapping->DebugString().c_str());
-        // 'map' the node ID from the gssw graph to the position
-        mapping->mutable_position()->set_node_id(nc->node->id); 
+        // 'map' the node ID from the gssw graph to the position the node ID in the gssw graph
+        // will be the same as the ID in the VG graph
+        mapping->mutable_position()->set_node_id(nc->node->id);
         // set the offset 
         mapping->mutable_position()->set_offset(from_pos);
-        // rank is the order?
+        // rank is the order, 1-based, equal to the number of mappings in the path
         mapping->set_rank(path->mapping_size());
+        st_uglyf("path->mapping_size(): %d\n", path->mapping_size());
         st_uglyf("later mapping: %s\n", mapping->DebugString().c_str());
         //cerr << from_node->id() << ":" << endl;
 
