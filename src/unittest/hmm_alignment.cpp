@@ -109,41 +109,32 @@ namespace vg {
                 //aligner.align_pinned(aln, graph.graph, pinned_node->id(), pin_left);
                 hmm.Align(aln, nullptr, p, true);
                 
-                /*
                 const Path& path = aln.path();
                 
-                // is a pinned alignment
-                if (pin_left) {
-                    st_uglyf("Pinned left?\n");
-                    REQUIRE(path.mapping(0).position().offset() == 0);
-                    REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
-                }
-                else {
-                    st_uglyf("Not pinned left?\n");
-                    REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
-                    REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
-                }
-                
+                // has correct number of mappings (nodes mapped to)
+                REQUIRE(path.mapping_size() == 3);
+
                 // follows correct path
                 REQUIRE(path.mapping(0).position().node_id() == 1);
-                REQUIRE(path.mapping(1).position().node_id() == 2);
+                REQUIRE(path.mapping(1).position().node_id() == 3);
                 REQUIRE(path.mapping(2).position().node_id() == 4);
                 
                 // has corrects edits
-                REQUIRE(path.mapping(0).edit(0).from_length() == 4);
-                REQUIRE(path.mapping(0).edit(0).to_length() == 4);
-                REQUIRE(path.mapping(0).edit(0).sequence().empty());
+                auto check_mapping_pairs = [&path] (int64_t mapping_idx, int64_t expected) {
+                    // has correct number of aligned pairs
+                    REQUIRE(path.mapping(mapping_idx).edit_size() == expected);
+                    // each has correct length (1) and is a match
+                    for (int64_t i = 0; i < path.mapping(mapping_idx).edit_size(); ++i) {
+                        REQUIRE(path.mapping(mapping_idx).edit(i).from_length() == ALIGNED_PAIR_LENGTH);
+                        REQUIRE(path.mapping(mapping_idx).edit(i).to_length() == ALIGNED_PAIR_LENGTH);
+                        REQUIRE(path.mapping(mapping_idx).edit(i).sequence().empty());
+                    }
+                };
                 
-                REQUIRE(path.mapping(1).edit(0).from_length() == 1);
-                REQUIRE(path.mapping(1).edit(0).to_length() == 1);
-                REQUIRE(path.mapping(1).edit(0).sequence().empty());
-                
-                REQUIRE(path.mapping(2).edit(0).from_length() == 6);
-                REQUIRE(path.mapping(2).edit(0).to_length() == 6);
-                REQUIRE(path.mapping(2).edit(0).sequence().empty());
-                */
+                check_mapping_pairs(0, 3);
+                check_mapping_pairs(1, 1);
+                check_mapping_pairs(2, 3);
                 exit(0);
-                
             }
             
             SECTION( "HMM alignment produces same alignment for an exact match regardless of left or right pinning") {
