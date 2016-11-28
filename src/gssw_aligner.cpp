@@ -342,7 +342,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         st_uglyf("at i = %d looking at node: ", i); cerr << from_node->id() << endl;
         string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
-        st_uglyf("start mapping: %s\n", mapping->DebugString().c_str());
         // 'map' the node ID from the gssw graph to the position the node ID in the gssw graph
         // will be the same as the ID in the VG graph
         mapping->mutable_position()->set_node_id(nc->node->id);
@@ -351,7 +350,7 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         // rank is the order, 1-based, equal to the number of mappings in the path
         mapping->set_rank(path->mapping_size());
         st_uglyf("path->mapping_size(): %d\n", path->mapping_size());
-        st_uglyf("later mapping: %s\n", mapping->DebugString().c_str());
+        st_uglyf("later mapping:\n%s\n", mapping->DebugString().c_str());
         //cerr << from_node->id() << ":" << endl;
 
         for (int j=0; j < l; ++j, ++e) {
@@ -376,7 +375,7 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                             edit = mapping->add_edit();
                             edit->set_from_length(h-last_start);
                             edit->set_to_length(h-last_start);
-                            cerr << edit->DebugString() << endl;
+                            cerr << "edit: " << edit->DebugString() << endl;
                         }
                         // set up the SNP
                         edit = mapping->add_edit();
@@ -394,7 +393,7 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                 }
                 to_pos += length;
                 from_pos += length;
-                cerr << "mapping at end of loop: " << mapping->DebugString() << endl;
+                cerr << "mapping at end of loop:\n" << mapping->DebugString() << endl;
             } break;
             case 'D':
                 edit = mapping->add_edit();

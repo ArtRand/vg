@@ -12,8 +12,11 @@
 
 #include "vg.pb.h"
 #include "utility.hpp"             // nonACGTNtoN
+#include "path.hpp"
 
 #include "Parcours/hmm_graph.h"
+
+#define ALIGNED_PAIR_LENGTH 1
 
 namespace vg {
    class HmmAligner {

@@ -104,18 +104,82 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
     aln.clear_path();
     aln.set_score(hmm_graph.PathScores()[pId] * PAIR_ALIGNMENT_PROB_1);
     // an Alignment has one Path, so add that
-    Path *aln_path = aln.mutable_path();
-    auto mapped_pairs = mapAlignedPairsToVgNodes(pId);
-    auto path_deque = hmm_graph.PathMap()[pId];  // contains the vertex IDs (in order) for this path
-    st_uglyf("SENTINAL vertex path: ");
-    for (int64_t vid : path_deque) {
-        st_uglyf(" %lld ", vid);
+    Path *aln_path    = aln.mutable_path();
+    string& read_seq  = *aln.mutable_sequence();
+    auto mapped_pairs = mapAlignedPairsToVgNodes(pId);    // contains the aligned pairs mapped to the vg nodes
+    auto path_deque   = hmm_graph.PathMap()[pId];         // contains the vertex IDs (in order) for this path
+    int64_t pX = 0;                                       // previous X (read coordinate) that matched
+    for (int64_t vid : path_deque) {                      // loop over the vertices in this path, make alignment
+        st_uglyf("SENTINAL: looking at vertex %lld (vg node: %lld)\n", vid, vertexId_to_nodeId[vid]);
+        int64_t vg_node_id              = vertexId_to_nodeId[vid];
+        const std::string& node_seq     = *hmm_graph.VertexSequence(vid);
+        AlignedPairs node_aligned_pairs = mapped_pairs[vg_node_id];
+        if (node_aligned_pairs.empty()) continue;         // there are no aligned pairs to this node's sequence
+        Mapping *mapp = aln_path->add_mapping();
+        mapp->mutable_position()->set_node_id(vg_node_id);
+        // get the first alined pair offset to set the position offset
+        int64_t offset = std::get<2>(node_aligned_pairs.at(0));
+        st_uglyf("offset: %lld\n", offset);
+        assert(offset >= 0);
+        mapp->mutable_position()->set_offset(std::get<2>(node_aligned_pairs.at(0)));
+        mapp->set_rank(aln_path->mapping_size());         // set this mapping's rank (order in mappings)
+        st_uglyf("before adding edits mapping:\n%s\n", mapp->DebugString().c_str());
+        // add the aligned pairs (as edits) 
+        int64_t pY = 0;   // previous offset that matched
+        int64_t mL = 0;   // match length
 
+        for (AlignedPair& pr : node_aligned_pairs) {
+            int64_t x = std::get<1>(pr);  // read coordinate
+            int64_t y = std::get<2>(pr);  // offset in node
+            // check the pairs
+            assert(x >= 0 && x < static_cast<int>(read_seq.size()));
+            assert(y >= 0 && y < static_cast<int>(node_seq.size()));
+
+            Edit *ed;
+            if (x - pX > 1) {  // there is an insert
+                st_uglyf("SENTINAL there's an INSERT, x: %lld, pX, %lld\n", x, pX);
+                ed = mapp->add_edit();
+                // for an insert the length in the node sequence is zero (not there) and the 
+                // `to_length` is the length of the insert, the sequence is the insert
+                ed->set_from_length(0);
+                int64_t insert_length = x - pX;
+                int64_t start_of_insert = pX + 1;
+                ed->set_to_length(insert_length); 
+                ed->set_sequence(read_seq.substr(start_of_insert, insert_length));
+            }
+            if (y - pY > 1) {  // there is a deletion
+                st_uglyf("SENTINAL there's an DELETE\n");
+                ed = mapp->add_edit();
+                // for a delete the `from_length` is the length of the deleted sequence (not in the read) 
+                // and the `to_length `is zero (not present in the read), no update to the sequence
+                ed->set_to_length(0);
+                int64_t delete_length = y - pY;
+                ed->set_from_length(delete_length);
+            }
+            // do the match/SNP
+            ed = mapp->add_edit();
+            // aligned pairs are length 1, by defination 
+            ed->set_from_length(ALIGNED_PAIR_LENGTH);
+            ed->set_to_length(ALIGNED_PAIR_LENGTH);
+            // check if SNP or match
+            char graph_base = (*hmm_graph.VertexSequence(vid)).at(y);
+            char read_base  = read_seq.at(x);
+            st_uglyf("graph seq: %c read seq: %c\n", graph_base, read_base);
+            if (graph_base != read_base) {
+                st_uglyf("SENTINAL there's a SNP\n");
+                ed->set_sequence(read_seq.substr(x, ALIGNED_PAIR_LENGTH));
+            } else {
+                st_uglyf("SENTINAL just a MATCH\n");
+            }
+            pX = x;
+            pY = y;
+            ++mL;
+        }
+        st_uglyf("after adding edits mapping:\n%s\n", mapp->DebugString().c_str());
     }
-    st_uglyf("\n");
-    // TODO TODO left off here, 
-    // TODO go through the vertexPath (from the HmmGraph) and make the alignment from the 
-    // TODO graph aligned pairs
+    double percent_identity = identity(aln.path());
+    st_uglyf("percent identity:%f\n", percent_identity);
+    aln.set_identity(percent_identity);
 }
 
 std::unordered_map<int64_t, AlignedPairs> HmmAligner::mapAlignedPairsToVgNodes(int64_t pId) {
@@ -133,7 +197,7 @@ std::unordered_map<int64_t, AlignedPairs> HmmAligner::mapAlignedPairsToVgNodes(i
         int64_t vg_node_id    = vertexId_to_nodeId[vid];
         st_uglyf("x: %lld vid: %lld offset: %lld vg_node_id: %lld, prob: %f\n", 
                  x, vid, offset, vg_node_id, posterior_prob);
-        AlignedPair aligned_pair = std::make_tuple(posterior_prob, x, offset);
+        AlignedPair aligned_pair = std::make_tuple(posterior_prob, x, offset);  // 
         mapped_pairs[vg_node_id].push_back(aligned_pair);
     }
     return mapped_pairs;
