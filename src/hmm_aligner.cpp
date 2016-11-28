@@ -106,6 +106,13 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
     // an Alignment has one Path, so add that
     Path *aln_path = aln.mutable_path();
     auto mapped_pairs = mapAlignedPairsToVgNodes(pId);
+    auto path_deque = hmm_graph.PathMap()[pId];  // contains the vertex IDs (in order) for this path
+    st_uglyf("SENTINAL vertex path: ");
+    for (int64_t vid : path_deque) {
+        st_uglyf(" %lld ", vid);
+
+    }
+    st_uglyf("\n");
     // TODO TODO left off here, 
     // TODO go through the vertexPath (from the HmmGraph) and make the alignment from the 
     // TODO graph aligned pairs
