@@ -130,7 +130,7 @@ TEST_CASE( "Hmm aligner produces correct alignment when read matches exactly (ma
     REQUIRE(aln.identity() == 1.0);
 }
 
-TEST_CASE("Hmm aligner produces correct alignment when there is a mismatch", "[hmm][current]") {
+TEST_CASE("Hmm aligner produces correct alignment when there is a mismatch", "[hmm]") {
     VG graph;
     
     Node* vid0 = graph.create_node("AGCA");
@@ -179,6 +179,5 @@ TEST_CASE("Hmm aligner produces correct alignment when there is a mismatch", "[h
     // check the rest of the alignment
     CheckMappingPairs(path, 1, 1);
     CheckMappingPairs(path, 2, 3);
-
 }
 }}
