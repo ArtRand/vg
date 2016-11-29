@@ -106,21 +106,23 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
     // an Alignment has one Path, so add that
     Path *aln_path    = aln.mutable_path();
     string& read_seq  = *aln.mutable_sequence();
-    auto mapped_pairs = mapAlignedPairsToVgNodes(pId);    // contains the aligned pairs mapped to the vg nodes
-    auto path_deque   = hmm_graph.PathMap()[pId];         // contains the vertex IDs (in order) for this path
-    int64_t pX = 0;                                       // previous X (read coordinate) that matched
+    auto mapped_pairs = mapAlignedPairsToVgNodes(pId);    // the aligned pairs mapped to the vg nodes
+    auto path_deque   = hmm_graph.PathMap()[pId];         // the vertex IDs (in order) for this path
+    int64_t pX = 0;                                       // previous matching X (read coordinate)
     for (int64_t vid : path_deque) {                      // loop over the vertices in this path, make alignment
         st_uglyf("SENTINAL: looking at vertex %lld (vg node: %lld)\n", vid, vertexId_to_nodeId[vid]);
         int64_t vg_node_id              = vertexId_to_nodeId[vid];
         const std::string& node_seq     = *hmm_graph.VertexSequence(vid);
         AlignedPairs node_aligned_pairs = mapped_pairs[vg_node_id];
+        
         if (node_aligned_pairs.empty()) continue;         // there are no aligned pairs to this node's sequence
+
         Mapping *mapp = aln_path->add_mapping();
         mapp->mutable_position()->set_node_id(vg_node_id);
         // get the first alined pair offset to set the position offset
         int64_t offset = std::get<2>(node_aligned_pairs.at(0));
         st_uglyf("offset: %lld\n", offset);
-        assert(offset >= 0);
+        assert(offset >= 0 && offset < static_cast<int>(node_seq.size()));
         mapp->mutable_position()->set_offset(std::get<2>(node_aligned_pairs.at(0)));
         mapp->set_rank(aln_path->mapping_size());         // set this mapping's rank (order in mappings)
         st_uglyf("before adding edits mapping:\n%s\n", mapp->DebugString().c_str());
