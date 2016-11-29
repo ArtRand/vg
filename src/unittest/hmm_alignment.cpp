@@ -163,21 +163,223 @@ TEST_CASE("Hmm aligner produces correct alignment when there is a mismatch", "[h
     REQUIRE(path.mapping(0).edit_size() == 4);
     REQUIRE(path.mapping(1).edit_size() == 1);
     REQUIRE(path.mapping(2).edit_size() == 3);
-    //
+    // follows correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid2->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
     // check the matching region
     REQUIRE(path.mapping(0).edit(0).from_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(0).edit(0).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(0).sequence().empty());
     REQUIRE(path.mapping(0).edit(1).from_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(0).edit(1).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(1).sequence().empty());
     // check the SNP
     REQUIRE(path.mapping(0).edit(2).from_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(0).edit(2).to_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(0).edit(2).sequence() == std::string("T"));
-    // check the remaining match
+    // check the remaining matching section
     REQUIRE(path.mapping(0).edit(3).from_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(0).edit(3).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(3).sequence().empty());
     // check the rest of the alignment
     CheckMappingPairs(path, 1, 1);
     CheckMappingPairs(path, 2, 3);
+}
+
+TEST_CASE("Hmm Aligner produces correct alignment when there is a single base deletion", "[hmm]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("AAGTAGCA");
+    Node* vid1 = graph.create_node("TTTT");
+    Node* vid2 = graph.create_node("AA");
+    Node* vid3 = graph.create_node("CGTAACAT");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                        
+                       // AAGTAGCAAACGTAACAT  [graph sequence]
+                       // AAGT-GCAAACGTAACAT  [read sequence]
+    string read = string("AAGTGCAAACGTAACAT");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+    // follows correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid2->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    // check the matches preceding the deletion
+    REQUIRE(path.mapping(0).edit_size() == vid0->sequence().size());
+    REQUIRE(path.mapping(0).edit(0).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(0).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(0).sequence().empty());
+    REQUIRE(path.mapping(0).edit(1).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(1).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(1).sequence().empty());
+    REQUIRE(path.mapping(0).edit(2).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(2).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(2).sequence().empty());
+    REQUIRE(path.mapping(0).edit(3).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(3).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(3).sequence().empty());
+    // check the deletion 
+    REQUIRE(path.mapping(0).edit(4).from_length() == 1);
+    REQUIRE(path.mapping(0).edit(4).to_length() == 0);
+    REQUIRE(path.mapping(0).edit(4).sequence().empty());
+    // check the remaining matching section 
+    REQUIRE(path.mapping(0).edit(5).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(5).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(5).sequence().empty());
+    REQUIRE(path.mapping(0).edit(6).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(6).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(6).sequence().empty());
+    REQUIRE(path.mapping(0).edit(7).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(7).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(7).sequence().empty());
+    CheckMappingPairs(path, 1, vid2->sequence().size());
+    CheckMappingPairs(path, 2, vid3->sequence().size());
+}
+TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base deletion", "[hmm]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("AAGTAGCA");
+    Node* vid1 = graph.create_node("TTTT");
+    Node* vid2 = graph.create_node("AA");
+    Node* vid3 = graph.create_node("CGTAACAT");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                        
+                       // AAGTAGCAAACGTAACAT  [graph sequence]
+                       // AAGT--CAAACGTAACAT  [read sequence]
+    string read = string("AAGTCAAACGTAACAT");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+    // follows correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid2->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    // check the matches preceding the deletion
+    REQUIRE(path.mapping(0).edit_size() == vid0->sequence().size() - 1);  // deletion becomes one edit
+    REQUIRE(path.mapping(0).edit(0).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(0).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(0).sequence().empty());
+    REQUIRE(path.mapping(0).edit(1).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(1).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(1).sequence().empty());
+    REQUIRE(path.mapping(0).edit(2).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(2).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(2).sequence().empty());
+    REQUIRE(path.mapping(0).edit(3).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(3).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(3).sequence().empty());
+    // check the deletion 
+    REQUIRE(path.mapping(0).edit(4).from_length() == 2);
+    REQUIRE(path.mapping(0).edit(4).to_length() == 0);
+    REQUIRE(path.mapping(0).edit(4).sequence().empty());
+    // check the remaining matching section 
+    REQUIRE(path.mapping(0).edit(5).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(5).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(5).sequence().empty());
+    REQUIRE(path.mapping(0).edit(6).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(6).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(6).sequence().empty());
+    CheckMappingPairs(path, 1, vid2->sequence().size());
+    CheckMappingPairs(path, 2, vid3->sequence().size());
+}
+TEST_CASE("Hmm Aligner produces correct alignment when there is an insertion", "[hmm][current]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("AAGTAGCA");
+    Node* vid1 = graph.create_node("TTTT");
+    Node* vid2 = graph.create_node("AA");
+    Node* vid3 = graph.create_node("CGAACAT");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                        
+                       // AAGTAGCAAACG-AACAT  [graph sequence]
+                       // AAGTAGCAAACGTAACAT  [read sequence]
+    string read = string("AAGTAGCAAACGTAACAT");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+    // follows correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid2->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    // check the first two perfectly matching mappings
+    CheckMappingPairs(path, 0, vid0->sequence().size());
+    CheckMappingPairs(path, 1, vid2->sequence().size());
+    // check the mapping with the insert
+    REQUIRE(path.mapping(2).edit_size() == vid3->sequence().size() + 1);  // plus 1 because of the insert edit
+    // matching section
+    REQUIRE(path.mapping(2).edit(0).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(0).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(0).sequence().empty());
+    REQUIRE(path.mapping(2).edit(1).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(1).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(1).sequence().empty());
+    // insert
+    REQUIRE(path.mapping(2).edit(2).from_length() == 0);
+    REQUIRE(path.mapping(2).edit(2).to_length() == 1);
+    REQUIRE(path.mapping(2).edit(2).sequence() == string("T"));
+    // the rest of the matching section
+    REQUIRE(path.mapping(2).edit(3).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(3).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(3).sequence().empty());
+    REQUIRE(path.mapping(2).edit(4).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(4).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(4).sequence().empty());
+    REQUIRE(path.mapping(2).edit(5).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(5).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(5).sequence().empty());
+    REQUIRE(path.mapping(2).edit(6).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(6).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(6).sequence().empty());
+    REQUIRE(path.mapping(2).edit(7).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(7).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(7).sequence().empty());
+
 }
 }}

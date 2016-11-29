@@ -142,7 +142,14 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
                 // for an insert the length in the node sequence is zero (not there) and the 
                 // `to_length` is the length of the insert, the sequence is the insert
                 ed->set_from_length(0);
-                int64_t insert_length = x - pX;
+                // say you have an insert in the read.. 
+                // 012 34  [y]
+                // ACG TA  [graph sequence]
+                // ||| ||
+                // ACGGTA  [read sequence]
+                // 012345  [x]
+                // pX = 2 (G <> G), x = 4 (T <> T), length of insert = 4 - 2 - 1 = 1;
+                int64_t insert_length = x - pX - 1;
                 int64_t start_of_insert = pX + 1;
                 ed->set_to_length(insert_length); 
                 ed->set_sequence(read_seq.substr(start_of_insert, insert_length));
@@ -153,7 +160,14 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
                 // for a delete the `from_length` is the length of the deleted sequence (not in the read) 
                 // and the `to_length `is zero (not present in the read), no update to the sequence
                 ed->set_to_length(0);
-                int64_t delete_length = y - pY;
+                // say you have a delete in the read..
+                // 01234  [y]
+                // ACGTA  [graph sequence]
+                // || ||
+                // AC TA  [read sequence]
+                // 01 23  [x]
+                // pY = 1 (C <> C pair), y = 3, length of delete = 3 - 1 - 1 = 1
+                int64_t delete_length = y - pY - 1;
                 ed->set_from_length(delete_length);
             }
             // do the match/SNP
