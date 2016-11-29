@@ -80,16 +80,17 @@ namespace vg {
                 
                 QualAdjAligner aligner = QualAdjAligner();
                 
-                Node* n0 = graph.create_node("CCCAGTT");
-                Node* n1 = graph.create_node("C");
-                Node* n2 = graph.create_node("A");
-                Node* n3 = graph.create_node("TGAAGT");
+                Node* n0 = graph.create_node("CCCAGTT");  // ID: 1
+                Node* n1 = graph.create_node("C");        // ID: 2
+                Node* n2 = graph.create_node("A");        // ID: 3
+                Node* n3 = graph.create_node("TGAAGT");   // ID: 4
                 
                 graph.create_edge(n0, n1);
                 graph.create_edge(n0, n2);
                 graph.create_edge(n1, n3);
                 graph.create_edge(n2, n3);
-                
+                                   // CCCAGTTCTGAAGT
+                                   // ||||||:|||||||
                 string read = string("CCCAGTGCTGAAGT");
                 Alignment aln;
                 aln.set_sequence(read);

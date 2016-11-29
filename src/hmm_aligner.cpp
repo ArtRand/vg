@@ -135,7 +135,7 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
             assert(x >= 0 && x < static_cast<int>(read_seq.size()));
             assert(y >= 0 && y < static_cast<int>(node_seq.size()));
 
-            Edit *ed;
+            Edit *ed;  // get it, Edit-ed?
             if (x - pX > 1) {  // there is an insert
                 st_uglyf("SENTINAL there's an INSERT, x: %lld, pX, %lld\n", x, pX);
                 ed = mapp->add_edit();

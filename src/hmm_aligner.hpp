@@ -52,8 +52,8 @@ namespace vg {
         
         // Internal Methods
         //
-        // converts the alignement in GraphAlignedPairs to a VG alignment object, pId is the 
-        // path to use (pathId)
+        // translates GraphAlignedPairs to an alignment in the VG aignment object, 
+        // pId is the path to use (pathId)
         void makeAlignmentFromAlignedPairs(Alignment&, int64_t pId);
         std::unordered_map<int64_t, AlignedPairs> mapAlignedPairsToVgNodes(int64_t pId);
         std::vector<double> pathScoresVector();
