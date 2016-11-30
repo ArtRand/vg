@@ -54,7 +54,6 @@ namespace vg {
                     REQUIRE(path.mapping(0).position().node_id() == pinned_node->id());
                 }
                 else {
-                    st_uglyf("SENTINAL not pinned\n");
                     REQUIRE(mapping_from_length(path.mapping(path.mapping_size() - 1)) == pinned_node->sequence().length());
                     REQUIRE(path.mapping(path.mapping_size() - 1).position().node_id() == pinned_node->id());
                 }
@@ -76,7 +75,6 @@ namespace vg {
                 REQUIRE(path.mapping(2).edit(0).from_length() == 6);
                 REQUIRE(path.mapping(2).edit(0).to_length() == 6);
                 REQUIRE(path.mapping(2).edit(0).sequence().empty());
-                exit(0);
             }
             
             SECTION( "Pinned alignment produces same alignment for an exact match regardless of left or right pinning") {

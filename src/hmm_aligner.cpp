@@ -3,15 +3,11 @@
 
 using namespace vg;
 
-HmmAligner::HmmAligner(Graph& G, bool reversed) {
+HmmAligner::HmmAligner(Graph& G) {
     st_uglyf("[HmmAligner::HmmAligner]: Building HmmGraph from Graph object, graph has %lld nodes "
              "and %lld edges\n", G.node_size(), G.edge_size());
     st_uglyf("[HmmAligner::HmmAligner]: internal graph has size %lld\n", hmm_graph.K());
     
-    if (reversed) {
-        // TODO
-    }
-
     for (int64_t i = 0; i < G.node_size(); i++) {
         Node *n = G.mutable_node(i);
 
@@ -72,7 +68,7 @@ void HmmAligner::Align(Alignment& aln, std::vector<Alignment>* path_alignments,
     // step 2: if not doing multi-path alignment, just add the one with the max score
     if (!path_alignments) {
         auto max_pathId = hmm_graph.MaxScorePath();
-        makeAlignmentFromAlignedPairs(aln, max_pathId);
+        makeAlignmentFromPathAlignedPairs(aln, max_pathId);
     } else {
         throw ParcoursException("HmmAligner::Align multipath not implemented");  
     }
@@ -99,11 +95,14 @@ void HmmAligner::PrintAlignedPairs() {
     }
 }
 
-void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
-    // setup alignment (clear, establish score, etc)
-    aln.clear_path();
+void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId) {
+    aln.clear_path();                                     // setup alignment (clear, establish score, etc)
     aln.set_score(hmm_graph.PathScores()[pId] * PAIR_ALIGNMENT_PROB_1);
-    Path *aln_path    = aln.mutable_path();               // an Alignment has one Path, so add that
+    //
+    // NOTE gssw_aligner sets the alignment `query_position` to 0 here, I'm not sure what that is 
+    // supposed to do, so I don't set that member, but should remember that it's NOT set
+    //
+    Path *aln_path    = aln.mutable_path();               // an Alignment has one Path, so get that
     string& read_seq  = *aln.mutable_sequence();
     auto mapped_pairs = mapAlignedPairsToVgNodes(pId);    // the aligned pairs mapped to the vg nodes
     auto vertex_path  = hmm_graph.PathMap()[pId];         // the vertex IDs (in order) for this path
@@ -162,13 +161,18 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
     };
 
     int64_t pX = 0;                                       // previous matching X (read coordinate)
-    for (int64_t vid : vertex_path) {                     // loop over the vertices in this path, make alignment
+    for (int64_t vid : vertex_path) {
         st_uglyf("SENTINAL: looking at vertex %lld (vg node: %lld)\n", vid, vertexId_to_nodeId[vid]);
         int64_t vg_node_id              = vertexId_to_nodeId[vid];
         const std::string& node_seq     = *hmm_graph.VertexSequence(vid);
         AlignedPairs node_aligned_pairs = mapped_pairs[vg_node_id];
         
-        if (node_aligned_pairs.empty()) continue;         // there are no aligned pairs to this node's sequence
+        if (node_aligned_pairs.empty()) {                // there are no aligned pairs to this node's sequence
+            // 
+            // TODO TODO add delete when a vertex has no pairs
+            //
+            continue;
+        }
 
         Mapping *mapp = aln_path->add_mapping();
         mapp->mutable_position()->set_node_id(vg_node_id);
@@ -176,16 +180,19 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
         int64_t offset = std::get<2>(node_aligned_pairs.at(0));
         st_uglyf("offset: %lld\n", offset);
         assert(offset >= 0 && offset < static_cast<int>(node_seq.size()));
+        //
+        // TODO TODO left off here, need to deal with 'leading deletes' where the offset is not 0
+        //
         mapp->mutable_position()->set_offset(std::get<2>(node_aligned_pairs.at(0)));
         mapp->set_rank(aln_path->mapping_size());         // set this mapping's rank (order in mappings)
         st_uglyf("before adding edits mapping:\n%s\n", mapp->DebugString().c_str());
         // add the aligned pairs (as edits) 
-        int64_t pY = 0;   // previous offset that matched
-        int64_t mL = 0;   // match length
+        int64_t pY = 0;                                   // previous offset that matched
+        int64_t mL = 0;                                   // match length
 
         for (AlignedPair& pr : node_aligned_pairs) {
-            int64_t x = std::get<1>(pr);  // read coordinate
-            int64_t y = std::get<2>(pr);  // offset in node
+            int64_t x = std::get<1>(pr);                  // read coordinate
+            int64_t y = std::get<2>(pr);                  // offset in node
             // check the pairs
             assert(x >= 0 && x < static_cast<int>(read_seq.size()));
             assert(y >= 0 && y < static_cast<int>(node_seq.size()));
@@ -198,7 +205,12 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
             ++mL;
         }
         st_uglyf("after adding edits mapping:\n%s\n", mapp->DebugString().c_str());
-        st_uglyf("SENTINAL - final pX %lld, node seq length %d\n", pY, node_seq.size() - 1);
+        st_uglyf("SENTINAL - final pY %lld, node seq length %d\n", pY, node_seq.size() - 1);
+
+        // 
+        // TODO TODO left off here, need to deal with trailing delete when the final pY is not the final 
+        // TODO TODO position in the node sequence
+        //
     }
     double percent_identity = identity(aln.path());
     st_uglyf("percent identity:%f\n", percent_identity);

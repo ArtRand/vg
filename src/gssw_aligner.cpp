@@ -98,7 +98,6 @@ gssw_graph* Aligner::create_gssw_graph(Graph& g, int64_t pinned_node_id, gssw_no
 
 void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alignments, Graph& g,
                              int64_t pinned_node_id, bool pin_left, int32_t max_alt_alns, bool print_score_matrices) {
-
     // check input integrity
     if (pin_left && !pinned_node_id) {
         cerr << "error:[Aligner] cannot choose pinned end in non-pinned alignment" << endl;
@@ -155,7 +154,6 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
     
     // traceback either from pinned position or optimal local alignment
     if (pinned_node) {
-        st_uglyf("SENTINAL pinned node TRUE\n");
         // trace back pinned alignment
         gssw_graph_mapping** gms = gssw_graph_trace_back_pinned_multi (graph,
                                                                        pinned_node,
@@ -178,7 +176,6 @@ void Aligner::align_internal(Alignment& alignment, vector<Alignment>* multi_alig
         // convert optimal alignment and store it in the input Alignment object (in the multi alignment,
         // this will have been set to the first in the vector)
         if (gms[0]->score > 0) {
-            st_uglyf("SENTINAL single mapping\n");
             // have a mapping, can just convert normally
             gssw_mapping_to_alignment(graph, gms[0], alignment, print_score_matrices);
         }
@@ -339,7 +336,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         gssw_cigar_element* e = c->elements;
 
         Node* from_node = (Node*) nc->node->data;  // node from the VG graph
-        st_uglyf("at i = %d looking at node: ", i); cerr << from_node->id() << endl;
         string& from_seq = *from_node->mutable_sequence();
         Mapping* mapping = path->add_mapping();
         // 'map' the node ID from the gssw graph to the position the node ID in the gssw graph
@@ -349,15 +345,11 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
         mapping->mutable_position()->set_offset(from_pos);
         // rank is the order, 1-based, equal to the number of mappings in the path
         mapping->set_rank(path->mapping_size());
-        st_uglyf("path->mapping_size(): %d\n", path->mapping_size());
-        st_uglyf("later mapping:\n%s\n", mapping->DebugString().c_str());
         //cerr << from_node->id() << ":" << endl;
 
         for (int j=0; j < l; ++j, ++e) {
             Edit* edit;
-            int32_t length = e->length;
-            cerr << e->length << e->type << endl;
-            
+            int32_t length = e->length;  // e is a cigar element, has a length and type eg M4 (match 4)
             switch (e->type) {
             case 'M':
             case 'X':
@@ -368,14 +360,13 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                 int k = to_pos;
                 // walk over the edits
                 for ( ; h < from_pos + length; ++h, ++k) {
-                    cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
+                    //cerr << h << ":" << k << " " << from_seq[h] << " " << to_seq[k] << endl;
                     if (from_seq[h] != to_seq[k]) {
                         // emit the last "match" region
                         if (h-last_start > 0) {
                             edit = mapping->add_edit();
                             edit->set_from_length(h-last_start);
                             edit->set_to_length(h-last_start);
-                            cerr << "edit: " << edit->DebugString() << endl;
                         }
                         // set up the SNP
                         edit = mapping->add_edit();
@@ -393,7 +384,6 @@ void Aligner::gssw_mapping_to_alignment(gssw_graph* graph,
                 }
                 to_pos += length;
                 from_pos += length;
-                cerr << "mapping at end of loop:\n" << mapping->DebugString() << endl;
             } break;
             case 'D':
                 edit = mapping->add_edit();
