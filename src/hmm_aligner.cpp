@@ -103,22 +103,72 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
     // setup alignment (clear, establish score, etc)
     aln.clear_path();
     aln.set_score(hmm_graph.PathScores()[pId] * PAIR_ALIGNMENT_PROB_1);
-    // an Alignment has one Path, so add that
-    Path *aln_path    = aln.mutable_path();
+    Path *aln_path    = aln.mutable_path();               // an Alignment has one Path, so add that
     string& read_seq  = *aln.mutable_sequence();
     auto mapped_pairs = mapAlignedPairsToVgNodes(pId);    // the aligned pairs mapped to the vg nodes
-    auto path_deque   = hmm_graph.PathMap()[pId];         // the vertex IDs (in order) for this path
+    auto vertex_path  = hmm_graph.PathMap()[pId];         // the vertex IDs (in order) for this path
+
+    // helper functions for modifying the alignment 
+    auto do_insert = [] (Mapping *mapping, std::string& read_sequence, int64_t x, int64_t pX) {
+        Edit *ed = mapping->add_edit();
+        // for an insert the length in the node sequence is zero (not there)
+        ed->set_from_length(0);
+        // say you have an insert in the read.. 
+        // 012 34  [y]
+        // ACG TA  [graph sequence]
+        // ||| ||
+        // ACGGTA  [read sequence]
+        // 012345  [x]
+        // pX = 2 (G <> G), x = 4 (T <> T), length of insert = 4 - 2 - 1 = 1;
+        int64_t insert_length   = x - pX - 1;
+        int64_t start_of_insert = pX + 1;
+        // the `to_length` is the length of the inserted sequence
+        ed->set_to_length(insert_length);
+        ed->set_sequence(read_sequence.substr(start_of_insert, insert_length));
+        st_uglyf("SENTINAL there's an INSERT, x: %lld, pX, %lld, length: %lld\n", x, pX, insert_length);
+    };
+    
+    auto do_delete = [] (Mapping *mapping, int64_t y, int64_t pY) {
+        Edit *ed = mapping->add_edit();
+        // the `to_length `is zero (not present in the read)
+        ed->set_to_length(0);
+        // say you have a delete in the read..
+        // 01234  [y]
+        // ACGTA  [graph sequence]
+        // || ||
+        // AC TA  [read sequence]
+        // 01 23  [x]
+        // pY = 1 (C <> C pair), y = 3, length of delete = 3 - 1 - 1 = 1
+        int64_t delete_length = y - pY - 1;
+        // for a delete the `from_length` is the length of the deleted sequence (not in the read)
+        ed->set_from_length(delete_length);
+        st_uglyf("SENTINAL there's an DELETE of length %lld\n", delete_length);
+    };
+
+    auto do_pair = [] (Mapping *mapping, const std::string& node_sequence, std::string& read_sequence, 
+                       int64_t x, int64_t y) {
+        Edit *ed = mapping->add_edit();
+        ed->set_from_length(ALIGNED_PAIR_LENGTH);
+        ed->set_to_length(ALIGNED_PAIR_LENGTH);
+        char graph_base = node_sequence.at(y);
+        char read_base  = read_sequence.at(x);
+        st_uglyf("SENTINAL graph seq: %c read seq: %c", graph_base, read_base);
+        if (graph_base != read_base) {
+            st_uglyf(" there's a SNP\n");
+            ed->set_sequence(read_sequence.substr(x, ALIGNED_PAIR_LENGTH));
+        } else {
+            st_uglyf(" just a MATCH\n");
+        }
+    };
+
     int64_t pX = 0;                                       // previous matching X (read coordinate)
-    for (int64_t vid : path_deque) {                      // loop over the vertices in this path, make alignment
+    for (int64_t vid : vertex_path) {                     // loop over the vertices in this path, make alignment
         st_uglyf("SENTINAL: looking at vertex %lld (vg node: %lld)\n", vid, vertexId_to_nodeId[vid]);
         int64_t vg_node_id              = vertexId_to_nodeId[vid];
         const std::string& node_seq     = *hmm_graph.VertexSequence(vid);
         AlignedPairs node_aligned_pairs = mapped_pairs[vg_node_id];
         
-        if (node_aligned_pairs.empty()) {
-            st_uglyf("no aligned pairs here\n"); 
-            continue;
-        }         // there are no aligned pairs to this node's sequence
+        if (node_aligned_pairs.empty()) continue;         // there are no aligned pairs to this node's sequence
 
         Mapping *mapp = aln_path->add_mapping();
         mapp->mutable_position()->set_node_id(vg_node_id);
@@ -140,56 +190,9 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
             assert(x >= 0 && x < static_cast<int>(read_seq.size()));
             assert(y >= 0 && y < static_cast<int>(node_seq.size()));
 
-            Edit *ed;  // get it, Edit-ed?
-            if (x - pX > 1) {  // there is an insert
-                ed = mapp->add_edit();
-                // for an insert the length in the node sequence is zero (not there) and the 
-                // `to_length` is the length of the insert, the sequence is the insert
-                ed->set_from_length(0);
-                // say you have an insert in the read.. 
-                // 012 34  [y]
-                // ACG TA  [graph sequence]
-                // ||| ||
-                // ACGGTA  [read sequence]
-                // 012345  [x]
-                // pX = 2 (G <> G), x = 4 (T <> T), length of insert = 4 - 2 - 1 = 1;
-                int64_t insert_length = x - pX - 1;
-                int64_t start_of_insert = pX + 1;
-                ed->set_to_length(insert_length); 
-                ed->set_sequence(read_seq.substr(start_of_insert, insert_length));
-                st_uglyf("SENTINAL there's an INSERT, x: %lld, pX, %lld, length: %lld\n", x, pX, insert_length);
-            }
-            if (y - pY > 1) {  // there is a deletion
-                ed = mapp->add_edit();
-                // for a delete the `from_length` is the length of the deleted sequence (not in the read) 
-                // and the `to_length `is zero (not present in the read), no update to the sequence
-                ed->set_to_length(0);
-                // say you have a delete in the read..
-                // 01234  [y]
-                // ACGTA  [graph sequence]
-                // || ||
-                // AC TA  [read sequence]
-                // 01 23  [x]
-                // pY = 1 (C <> C pair), y = 3, length of delete = 3 - 1 - 1 = 1
-                int64_t delete_length = y - pY - 1;
-                ed->set_from_length(delete_length);
-                st_uglyf("SENTINAL there's an DELETE of length %lld\n", delete_length);
-            }
-            // do the match/SNP
-            ed = mapp->add_edit();
-            // aligned pairs are length 1, by defination 
-            ed->set_from_length(ALIGNED_PAIR_LENGTH);
-            ed->set_to_length(ALIGNED_PAIR_LENGTH);
-            // check if SNP or match
-            char graph_base = (*hmm_graph.VertexSequence(vid)).at(y);
-            char read_base  = read_seq.at(x);
-            st_uglyf("SENTINAL graph seq: %c read seq: %c", graph_base, read_base);
-            if (graph_base != read_base) {
-                st_uglyf(" there's a SNP\n");
-                ed->set_sequence(read_seq.substr(x, ALIGNED_PAIR_LENGTH));
-            } else {
-                st_uglyf(" just a MATCH\n");
-            }
+            if (x - pX > 1) do_insert(mapp, read_seq, x, pX);
+            if (y - pY > 1) do_delete(mapp, y, pY);
+            do_pair(mapp, node_seq, read_seq, x, y);
             pX = x;
             pY = y;
             ++mL;
