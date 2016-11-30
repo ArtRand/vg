@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "vg.pb.h"
-#include "utility.hpp"             // nonACGTNtoN
 #include "path.hpp"
 
 #include "Parcours/hmm_graph.h"

@@ -10,11 +10,9 @@
 #include "sonLib.h"  // for st_uglyf
 #include "hmm_aligner.hpp"
 #include "alignment.hpp"
-#include "gssw_aligner.hpp"
 #include "vg.hpp"
 #include "path.hpp"
 #include "catch.hpp"
-#include "json2pb.h"
 
 using namespace google::protobuf;
 
@@ -449,6 +447,48 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base ins
     REQUIRE(path.mapping(2).edit(6).sequence().empty());
 }
 
+TEST_CASE("Hmm Aligner produces correct alignment when there is a whole node deletion", "[hmm]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("CATG");
+    Node* vid1 = graph.create_node("CCTT");
+    Node* vid2 = graph.create_node("AAA");
+    Node* vid3 = graph.create_node("CTAG");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                       // CATGAAACTAG
+                       // CATG---CTAG
+    string read = string("CATGCTAG");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+    // follows correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid2->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    CheckMappingPairs(path, 0, vid0->sequence().size());
+    REQUIRE(path.mapping(1).edit_size() == 1);                                  // only one edit, all delete
+    REQUIRE(path.mapping(1).edit(0).to_length() == 0);                          // is a delete
+    // delete is the length of the enire node's sequence 
+    REQUIRE(path.mapping(1).edit(0).from_length() == vid2->sequence().size());
+                                                                                
+    CheckMappingPairs(path, 0, vid0->sequence().size());
+}
+
 TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that crosses a node boundary", 
           "[hmm][current]") {
     VG graph;
@@ -485,4 +525,10 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that 
     REQUIRE(path.mapping(2).position().node_id() == vid3->id());
     
 }
+
+// 
+// TODO test when read doesn't align to first base in first node
+// TODO test when the read is soft clipped
+//
+
 }}

@@ -81,6 +81,9 @@ void HmmAligner::PrintAlignedPairs() {
     int64_t most_prob_path   = hmm_graph.MaxScorePath();
 
     for (auto kv : graph_aligned_pairs) {
+        // 
+        // TODO Print vertex path 
+        //
         std::cerr << "path: " << kv.first << " score: " << graph_path_scores[kv.first];
         if (kv.first == most_prob_path) std::cerr << " <-- Highest Score Path\n";
         else std::cerr << "\n";
@@ -127,7 +130,7 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId) 
         st_uglyf("SENTINAL there's an INSERT, x: %lld, pX, %lld, length: %lld\n", x, pX, insert_length);
     };
     
-    auto do_delete = [] (Mapping *mapping, int64_t y, int64_t pY) {
+    auto do_delete = [] (Mapping *mapping, int64_t delete_length) {  // TODO change to 'delete_length'
         Edit *ed = mapping->add_edit();
         // the `to_length `is zero (not present in the read)
         ed->set_to_length(0);
@@ -138,7 +141,7 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId) 
         // AC TA  [read sequence]
         // 01 23  [x]
         // pY = 1 (C <> C pair), y = 3, length of delete = 3 - 1 - 1 = 1
-        int64_t delete_length = y - pY - 1;
+        //int64_t delete_length = y - pY - 1;
         // for a delete the `from_length` is the length of the deleted sequence (not in the read)
         ed->set_from_length(delete_length);
         st_uglyf("SENTINAL there's an DELETE of length %lld\n", delete_length);
@@ -160,34 +163,49 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId) 
         }
     };
 
+    // 
+    // first need to find fist vertex with an aligned pair in this path and set that to the 'start'
+    // of the alignment slice the vertex path to the first (and last?) vertex that has aligned pairs
+    // TODO TODO
+    //
+    
     int64_t pX = 0;                                       // previous matching X (read coordinate)
     for (int64_t vid : vertex_path) {
         st_uglyf("SENTINAL: looking at vertex %lld (vg node: %lld)\n", vid, vertexId_to_nodeId[vid]);
         int64_t vg_node_id              = vertexId_to_nodeId[vid];
         const std::string& node_seq     = *hmm_graph.VertexSequence(vid);
         AlignedPairs node_aligned_pairs = mapped_pairs[vg_node_id];
-        
-        if (node_aligned_pairs.empty()) {                // there are no aligned pairs to this node's sequence
-            // 
-            // TODO TODO add delete when a vertex has no pairs
-            //
-            continue;
-        }
-
         Mapping *mapp = aln_path->add_mapping();
         mapp->mutable_position()->set_node_id(vg_node_id);
-        // get the first alined pair offset to set the position offset
-        int64_t offset = std::get<2>(node_aligned_pairs.at(0));
-        st_uglyf("offset: %lld\n", offset);
-        assert(offset >= 0 && offset < static_cast<int>(node_seq.size()));
-        //
-        // TODO TODO left off here, need to deal with 'leading deletes' where the offset is not 0
-        //
-        mapp->mutable_position()->set_offset(std::get<2>(node_aligned_pairs.at(0)));
         mapp->set_rank(aln_path->mapping_size());         // set this mapping's rank (order in mappings)
+        if (node_aligned_pairs.empty()) {                 // there are no aligned pairs to this node's sequence
+            st_uglyf("SENTINAL DELETE THROUGH VERTEX %lld doing delete\n", vid);
+            mapp->mutable_position()->set_offset(0);      // offset for an entire node delete is 0
+            // y = len(node_seq) + 1 as a hack to use the same function, basically we want the delete 
+            // to be the length of node_seq
+            do_delete(mapp, static_cast<int>(node_seq.size()));
+            st_uglyf("after adding edits mapping:\n%s\n", mapp->DebugString().c_str());
+            continue;
+        }
+        // get the first alined pair offset to set the position offset
+        int64_t fY = std::get<2>(node_aligned_pairs.at(0));
+        st_uglyf("fY: %lld\n", fY);
+        assert(fY >= 0 && fY < static_cast<int>(node_seq.size()));
+        if (fY != 0) {  // there is a leading delete
+            if (vid == vertex_path.at(0)) {  // we're at the first vertex
+                st_uglyf("SENTINAL - leading delete at first node!\n");
+                exit(1);
+            }
+            mapp->mutable_position()->set_offset(0);  // not at first node, so start at 0th position
+            do_delete(mapp, fY);
+        } else {
+            mapp->mutable_position()->set_offset(0);
+        }
+        //mapp->set_rank(aln_path->mapping_size());         // set this mapping's rank (order in mappings)
         st_uglyf("before adding edits mapping:\n%s\n", mapp->DebugString().c_str());
         // add the aligned pairs (as edits) 
-        int64_t pY = 0;                                   // previous offset that matched
+        //int64_t pY = 0;                                   // previous offset that matched
+        int64_t pY = std::get<2>(node_aligned_pairs.at(0));
         int64_t mL = 0;                                   // match length
 
         for (AlignedPair& pr : node_aligned_pairs) {
@@ -198,19 +216,21 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId) 
             assert(y >= 0 && y < static_cast<int>(node_seq.size()));
 
             if (x - pX > 1) do_insert(mapp, read_seq, x, pX);
-            if (y - pY > 1) do_delete(mapp, y, pY);
+            if (y - pY > 1) do_delete(mapp, y - pY - 1);
             do_pair(mapp, node_seq, read_seq, x, y);
             pX = x;
             pY = y;
             ++mL;
         }
-        st_uglyf("after adding edits mapping:\n%s\n", mapp->DebugString().c_str());
         st_uglyf("SENTINAL - final pY %lld, node seq length %d\n", pY, node_seq.size() - 1);
-
-        // 
-        // TODO TODO left off here, need to deal with trailing delete when the final pY is not the final 
-        // TODO TODO position in the node sequence
-        //
+        
+        // deal with deletes at the end of non-terminal nodes
+        if ((pY != static_cast<int>(node_seq.size()) - 1) && (vid != vertex_path.back())) {
+            int64_t delete_length = (node_seq.size() - 1) - pY;
+            do_delete(mapp, delete_length);
+        }
+        st_uglyf("after adding edits mapping:\n%s\n", mapp->DebugString().c_str());
+        
     }
     double percent_identity = identity(aln.path());
     st_uglyf("percent identity:%f\n", percent_identity);
