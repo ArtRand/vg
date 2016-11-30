@@ -523,6 +523,31 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that 
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
     REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    // first mapping
+    REQUIRE(path.mapping(0).edit_size() == 4);  // should have a mapping for each base in the sequence
+    REQUIRE(path.mapping(0).edit(0).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(0).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(0).sequence().empty());
+    REQUIRE(path.mapping(0).edit(1).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(1).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(0).edit(1).sequence().empty());
+    REQUIRE(path.mapping(0).edit(2).from_length() == 1);  // the delete at the end of the node
+    REQUIRE(path.mapping(0).edit(2).to_length() == 0);    // the delete at the end of the node
+    REQUIRE(path.mapping(0).edit(2).sequence().empty()); 
+
+    // second mapping
+    REQUIRE(path.mapping(1).edit_size() == 3);  // should have a mapping for each base in the sequence
+    REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+    REQUIRE(path.mapping(1).edit(0).to_length() == 0);
+    REQUIRE(path.mapping(1).edit(1).from_length() == 1);
+    REQUIRE(path.mapping(1).edit(1).to_length() == 1);
+    REQUIRE(path.mapping(1).edit(1).sequence().empty());
+    REQUIRE(path.mapping(1).edit(2).from_length() == 1);
+    REQUIRE(path.mapping(1).edit(2).to_length() == 1);
+    REQUIRE(path.mapping(1).edit(2).sequence().empty());
+    
+    // third mapping
+    CheckMappingPairs(path, 2, vid3->sequence().size());
     
 }
 

@@ -224,7 +224,9 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId) 
         }
         st_uglyf("SENTINAL - final pY %lld, node seq length %d\n", pY, node_seq.size() - 1);
         
-        // deal with deletes at the end of non-terminal nodes
+        // deal with deletes at the end of non-terminal nodes 
+        // note: node_seq.size() - 1 = the number of aligned pairs you'd get if you had 
+        // perfect matching
         if ((pY != static_cast<int>(node_seq.size()) - 1) && (vid != vertex_path.back())) {
             int64_t delete_length = (node_seq.size() - 1) - pY;
             do_delete(mapp, delete_length);
