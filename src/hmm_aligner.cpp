@@ -93,8 +93,8 @@ void HmmAligner::PrintAlignedPairs() {
             int64_t vid     = std::get<2>(p).first;
             int64_t offset  = std::get<2>(p).second;
             double prob     = std::get<0>(p)/PAIR_ALIGNMENT_PROB_1;
-            std::cerr << "x: " << x_coord << " vertexID: " << vid << 
-                " offset: " << offset << " prob: " << prob << std::endl;
+            std::cerr << "x: " << x_coord << " vertexID: " << vid << " NodeId: " << 
+                vertexId_to_nodeId[vid] << " offset: " << offset << " prob: " << prob << std::endl;
         }
     }
 }
@@ -115,7 +115,10 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
         const std::string& node_seq     = *hmm_graph.VertexSequence(vid);
         AlignedPairs node_aligned_pairs = mapped_pairs[vg_node_id];
         
-        if (node_aligned_pairs.empty()) continue;         // there are no aligned pairs to this node's sequence
+        if (node_aligned_pairs.empty()) {
+            st_uglyf("no aligned pairs here\n"); 
+            continue;
+        }         // there are no aligned pairs to this node's sequence
 
         Mapping *mapp = aln_path->add_mapping();
         mapp->mutable_position()->set_node_id(vg_node_id);
@@ -139,7 +142,6 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
 
             Edit *ed;  // get it, Edit-ed?
             if (x - pX > 1) {  // there is an insert
-                st_uglyf("SENTINAL there's an INSERT, x: %lld, pX, %lld\n", x, pX);
                 ed = mapp->add_edit();
                 // for an insert the length in the node sequence is zero (not there) and the 
                 // `to_length` is the length of the insert, the sequence is the insert
@@ -155,9 +157,9 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
                 int64_t start_of_insert = pX + 1;
                 ed->set_to_length(insert_length); 
                 ed->set_sequence(read_seq.substr(start_of_insert, insert_length));
+                st_uglyf("SENTINAL there's an INSERT, x: %lld, pX, %lld, length: %lld\n", x, pX, insert_length);
             }
             if (y - pY > 1) {  // there is a deletion
-                st_uglyf("SENTINAL there's an DELETE\n");
                 ed = mapp->add_edit();
                 // for a delete the `from_length` is the length of the deleted sequence (not in the read) 
                 // and the `to_length `is zero (not present in the read), no update to the sequence
@@ -171,6 +173,7 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
                 // pY = 1 (C <> C pair), y = 3, length of delete = 3 - 1 - 1 = 1
                 int64_t delete_length = y - pY - 1;
                 ed->set_from_length(delete_length);
+                st_uglyf("SENTINAL there's an DELETE of length %lld\n", delete_length);
             }
             // do the match/SNP
             ed = mapp->add_edit();
@@ -180,18 +183,19 @@ void HmmAligner::makeAlignmentFromAlignedPairs(Alignment& aln, int64_t pId) {
             // check if SNP or match
             char graph_base = (*hmm_graph.VertexSequence(vid)).at(y);
             char read_base  = read_seq.at(x);
-            st_uglyf("graph seq: %c read seq: %c\n", graph_base, read_base);
+            st_uglyf("SENTINAL graph seq: %c read seq: %c", graph_base, read_base);
             if (graph_base != read_base) {
-                st_uglyf("SENTINAL there's a SNP\n");
+                st_uglyf(" there's a SNP\n");
                 ed->set_sequence(read_seq.substr(x, ALIGNED_PAIR_LENGTH));
             } else {
-                st_uglyf("SENTINAL just a MATCH\n");
+                st_uglyf(" just a MATCH\n");
             }
             pX = x;
             pY = y;
             ++mL;
         }
         st_uglyf("after adding edits mapping:\n%s\n", mapp->DebugString().c_str());
+        st_uglyf("SENTINAL - final pX %lld, node seq length %d\n", pY, node_seq.size() - 1);
     }
     double percent_identity = identity(aln.path());
     st_uglyf("percent identity:%f\n", percent_identity);

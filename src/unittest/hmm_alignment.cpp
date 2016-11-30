@@ -272,7 +272,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base del
     p.expansion   = 2;
     p.threshold   = 0.6;
     p.ignore_gaps = false;
-                        
+                       // |------|--|------|  [node bounds]
                        // AAGTAGCAAACGTAACAT  [graph sequence]
                        // AAGT--CAAACGTAACAT  [read sequence]
     string read = string("AAGTCAAACGTAACAT");
@@ -383,7 +383,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a single base in
     REQUIRE(path.mapping(2).edit(7).sequence().empty());
 }
 
-TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base insertion", "[hmm][current]") {
+TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base insertion", "[hmm]") {
     VG graph;
     
     Node* vid0 = graph.create_node("AAGTAGCA");
@@ -447,5 +447,42 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base ins
     REQUIRE(path.mapping(2).edit(6).from_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(2).edit(6).to_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(2).edit(6).sequence().empty());
+}
+
+TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that crosses a node boundary", 
+          "[hmm][current]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("CATG");
+    Node* vid1 = graph.create_node("CCTT");
+    Node* vid2 = graph.create_node("AAA");
+    Node* vid3 = graph.create_node("CTAG");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                       // CATGAAACTAG
+                       // CAT--AACTAG
+    string read = string("CATAACTAG");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+    // follows correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid2->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    
 }
 }}
