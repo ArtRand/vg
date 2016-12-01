@@ -484,7 +484,7 @@ namespace vg {
                 REQUIRE(path.mapping(0).position().node_id() == 1);
                 REQUIRE(path.mapping(1).position().node_id() == 2);
                 REQUIRE(path.mapping(2).position().node_id() == 4);
-                
+
                 // has corrects edits
                 REQUIRE(path.mapping(0).edit(0).from_length() == 0);
                 REQUIRE(path.mapping(0).edit(0).to_length() == 1);
@@ -601,7 +601,7 @@ namespace vg {
                 REQUIRE(path.mapping(0).position().node_id() == 1);
                 REQUIRE(path.mapping(1).position().node_id() == 2);
                 REQUIRE(path.mapping(2).position().node_id() == 4);
-                
+
                 // has corrects edits
                 REQUIRE(path.mapping(0).edit(0).from_length() == 1);
                 REQUIRE(path.mapping(0).edit(0).to_length() == 0);

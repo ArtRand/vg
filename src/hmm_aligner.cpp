@@ -57,18 +57,19 @@ HmmAligner::~HmmAligner() {};
 
 int64_t HmmAligner::Graph_K() { return hmm_graph.K(); }
 
-void HmmAligner::Align(Alignment& aln, std::vector<Alignment>* path_alignments, 
-                       AlignmentParameters& p, bool get_pairs) {
+void HmmAligner::Align(Alignment& aln, std::vector<Alignment>* path_alignments, AlignmentParameters& p, 
+                       bool get_pairs, bool ragged_end) {
     // step 1: align the sequence to the graph with the HMM
     std::string* sx = aln.mutable_sequence();
     if (sx->length() <= 0) return;
     // TODO need try/catch here:
-    hmm_graph.AlignWithFiveStateSymbolHmm((*sx), p, get_pairs);
+    hmm_graph.AlignWithFiveStateSymbolHmm((*sx), p, get_pairs, ragged_end);
+    // debug
     PrintAlignedPairs();
     // step 2: if not doing multi-path alignment, just add the one with the max score
     if (!path_alignments) {
         auto max_pathId = hmm_graph.MaxScorePath();
-        makeAlignmentFromPathAlignedPairs(aln, max_pathId);
+        makeAlignmentFromPathAlignedPairs(aln, max_pathId, ragged_end);
     } else {
         throw ParcoursException("HmmAligner::Align multipath not implemented");  
     }
@@ -98,8 +99,13 @@ void HmmAligner::PrintAlignedPairs() {
     }
 }
 
-void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId) {
-    aln.clear_path();                                     // setup alignment (clear, establish score, etc)
+void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId, bool ragged_end) {
+    if (!ragged_end) {
+        st_uglyf("SENTINAL doing global alignment\n");
+    } else { 
+        st_uglyf("SENTINAL doing local alignment\n");
+    }
+    aln.clear_path();
     aln.set_score(hmm_graph.PathScores()[pId] * PAIR_ALIGNMENT_PROB_1);
     //
     // NOTE gssw_aligner sets the alignment `query_position` to 0 here, I'm not sure what that is 
@@ -187,7 +193,7 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId) 
             st_uglyf("after adding edits mapping:\n%s\n", mapp->DebugString().c_str());
             continue;
         }
-        // get the first alined pair offset to set the position offset
+        // the first alined pair offset to set the position offset
         int64_t fY = std::get<2>(node_aligned_pairs.at(0));
         st_uglyf("fY: %lld\n", fY);
         assert(fY >= 0 && fY < static_cast<int>(node_seq.size()));

@@ -108,7 +108,7 @@ TEST_CASE( "Hmm aligner produces correct alignment when read matches exactly (ma
     string read = string("AGCACGT");
     Alignment aln;
     aln.set_sequence(read);
-    hmm.Align(aln, nullptr, p, true);
+    hmm.Align(aln, nullptr, p);
     
     const Path& path = aln.path();
     
@@ -152,7 +152,7 @@ TEST_CASE("Hmm aligner produces correct alignment when there is a mismatch", "[h
     string read = string("AGTAACGT");
     Alignment aln;
     aln.set_sequence(read);
-    hmm.Align(aln, nullptr, p, true);
+    hmm.Align(aln, nullptr, p);
     
     const Path& path = aln.path();
 
@@ -210,7 +210,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a single base de
     string read = string("AAGTGCAAACGTAACAT");
     Alignment aln;
     aln.set_sequence(read);
-    hmm.Align(aln, nullptr, p, true);
+    hmm.Align(aln, nullptr, p);
     
     const Path& path = aln.path();
     // maps to 3 nodes
@@ -276,7 +276,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base del
     string read = string("AAGTCAAACGTAACAT");
     Alignment aln;
     aln.set_sequence(read);
-    hmm.Align(aln, nullptr, p, true);
+    hmm.Align(aln, nullptr, p);
     
     const Path& path = aln.path();
     // maps to 3 nodes
@@ -338,7 +338,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a single base in
     string read = string("AAGTAGCAAACGTAACAT");
     Alignment aln;
     aln.set_sequence(read);
-    hmm.Align(aln, nullptr, p, true);
+    hmm.Align(aln, nullptr, p);
     
     const Path& path = aln.path();
     // maps to 3 nodes
@@ -407,7 +407,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base ins
     string read = string("AAGTAGCAAACGTAACAT");
     Alignment aln;
     aln.set_sequence(read);
-    hmm.Align(aln, nullptr, p, true);
+    hmm.Align(aln, nullptr, p);
     
     const Path& path = aln.path();
     // maps to 3 nodes
@@ -471,7 +471,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a whole node del
     string read = string("CATGCTAG");
     Alignment aln;
     aln.set_sequence(read);
-    hmm.Align(aln, nullptr, p, true);
+    hmm.Align(aln, nullptr, p);
     
     const Path& path = aln.path();
     // maps to 3 nodes
@@ -490,7 +490,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a whole node del
 }
 
 TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that crosses a node boundary", 
-          "[hmm][current]") {
+          "[hmm]") {
     VG graph;
     
     Node* vid0 = graph.create_node("CATG");
@@ -514,7 +514,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that 
     string read = string("CATAACTAG");
     Alignment aln;
     aln.set_sequence(read);
-    hmm.Align(aln, nullptr, p, true);
+    hmm.Align(aln, nullptr, p);
     
     const Path& path = aln.path();
     // maps to 3 nodes
@@ -524,7 +524,8 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that 
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
     REQUIRE(path.mapping(2).position().node_id() == vid3->id());
     // first mapping
-    REQUIRE(path.mapping(0).edit_size() == 4);  // should have a mapping for each base in the sequence
+    // should have a mapping for each base in the sequence
+    REQUIRE(path.mapping(0).edit_size() == vid0->sequence().size()); 
     REQUIRE(path.mapping(0).edit(0).from_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(0).edit(0).to_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(0).edit(0).sequence().empty());
@@ -539,7 +540,8 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that 
     REQUIRE(path.mapping(0).edit(3).sequence().empty()); 
 
     // second mapping
-    REQUIRE(path.mapping(1).edit_size() == 3);  // should have a mapping for each base in the sequence
+    // should have a mapping for each base in the sequence
+    REQUIRE(path.mapping(1).edit_size() == vid2->sequence().size()); 
     REQUIRE(path.mapping(1).edit(0).from_length() == 1);
     REQUIRE(path.mapping(1).edit(0).to_length() == 0);
     REQUIRE(path.mapping(1).edit(1).from_length() == 1);
@@ -554,9 +556,91 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that 
     
 }
 
+TEST_CASE("Hmm Aligner produces correct alignment when the read doesn't span the entire graph", 
+        "[hmm]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("AAGTAGCA");
+    Node* vid1 = graph.create_node("TTT");
+    Node* vid2 = graph.create_node("AA");
+    Node* vid3 = graph.create_node("CGACAT");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                       // AAGTAGCAAAGCACAT
+                       // AAGTAGCAAAGCA---
+    string read = string("AAGTAGCAAACGA");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+    // follows correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid2->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    // first two node mappings are all matches
+    CheckMappingPairs(path, 0, vid0->sequence().size());
+    CheckMappingPairs(path, 1, vid2->sequence().size());
+    // the last mapping should only contain 3 edits, to the first three bases
+    REQUIRE(path.mapping(2).edit_size() == 3);
+    REQUIRE(path.mapping(2).edit(0).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(0).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(0).sequence().empty());
+    REQUIRE(path.mapping(2).edit(1).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(1).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(1).sequence().empty());
+    REQUIRE(path.mapping(2).edit(2).from_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(2).to_length() == ALIGNED_PAIR_LENGTH);
+    REQUIRE(path.mapping(2).edit(2).sequence().empty());
+}
+
+TEST_CASE("Hmm Aligner produces correct alignment when it starts with a single base insertion", 
+          "[current]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("AACCCAGG");
+    Node* vid1 = graph.create_node("CA");
+    Node* vid2 = graph.create_node("ATA");
+    Node* vid3 = graph.create_node("TGAAGT");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                       // -AACCCAGGATTAGAAGT
+    string read = string("NAACCCAGGATATGAAGT");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true, true);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+
+}
 // 
-// TODO test when read doesn't align to first base in first node
-// TODO test when the read is soft clipped
+// TODO test when read doesn't align to first base in first node (start deletion)
+// TODO test when the read is soft clipped (ends with insertion)
+// TODO N-match
 //
 
 }}

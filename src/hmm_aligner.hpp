@@ -30,10 +30,10 @@ namespace vg {
         // Aligns the sequence in aln to the graph, if path_alignments != nullptr
         // then it adds alignments from all paths, otherwise it just adds the 
         // highest scoring path (TODO add get_pairs into AlignmentParameters?)
-        void Align(Alignment& aln, std::vector<Alignment>* path_alignments, 
-                   AlignmentParameters& p, bool get_pairs=true);  // TODO not implemented
+        void Align(Alignment& aln, std::vector<Alignment>* path_alignments, AlignmentParameters& p, 
+                   bool get_pairs=true, bool ragged_end=false);
 
-        void Align(Alignment&, AlignmentParameters& p, bool get_pairs=true);
+        //void Align(Alignment&, AlignmentParameters& p, bool get_pairs=true); // TODO not implemented
 
         void PrintAlignedPairs();
 
@@ -53,7 +53,7 @@ namespace vg {
         //
         // translates GraphAlignedPairs to an alignment in the VG aignment object, 
         // pId is the path to use (pathId)
-        void makeAlignmentFromPathAlignedPairs(Alignment&, int64_t pId);
+        void makeAlignmentFromPathAlignedPairs(Alignment&, int64_t pId, bool ragged_end);
         std::unordered_map<int64_t, AlignedPairs> mapAlignedPairsToVgNodes(int64_t pId);
         std::vector<double> pathScoresVector();
     };

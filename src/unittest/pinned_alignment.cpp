@@ -624,7 +624,7 @@ namespace vg {
                 REQUIRE(path.mapping(2).edit(0).to_length() == 8);
                 REQUIRE(path.mapping(2).edit(0).sequence().empty());
             }
-            
+            // TODO left off here
             SECTION( "Pinned alignment produces correct alignment when a there is an N match" ) {
                 
                 VG graph;
