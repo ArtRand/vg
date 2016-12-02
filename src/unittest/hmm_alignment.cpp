@@ -582,7 +582,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that 
 }
 
 TEST_CASE("Hmm Aligner produces correct alignment when the read doesn't span the entire graph", 
-        "[hmm][current]") {
+        "[hmm]") {
     VG graph;
     
     Node* vid0 = graph.create_node("AAGTAGCA");
@@ -610,19 +610,16 @@ TEST_CASE("Hmm Aligner produces correct alignment when the read doesn't span the
     
     const Path& path = aln.path();
     // maps to 3 nodes
-    REQUIRE(path.mapping_size() == 3);
-    //
-    // TODO fix global alignment edits
-    //
     // follows correct path
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
     REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    CheckForGlobalAlignment(path, vid3);
     // first two node mappings are all matches
     CheckMappingPairs(path, 0, vid0->sequence().size());
     CheckMappingPairs(path, 1, vid2->sequence().size());
     // the last mapping should only contain 3 edits, to the first three bases
-    REQUIRE(path.mapping(2).edit_size() == vid3->sequence().size());
+    REQUIRE(path.mapping(2).edit_size() == 4);  // 3 matches and 1 delete
     REQUIRE(path.mapping(2).edit(0).from_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(2).edit(0).to_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(2).edit(0).sequence().empty());
@@ -632,10 +629,12 @@ TEST_CASE("Hmm Aligner produces correct alignment when the read doesn't span the
     REQUIRE(path.mapping(2).edit(2).from_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(2).edit(2).to_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(2).edit(2).sequence().empty());
+    REQUIRE(path.mapping(2).edit(3).from_length() == 3);  // final delete
+    REQUIRE(path.mapping(2).edit(3).to_length() == 0);
 }
 
 TEST_CASE("Hmm Aligner produces correct alignment when it starts with a single base insertion", 
-          "") {
+          "[current][hmm]") {
     VG graph;
     
     Node* vid0 = graph.create_node("AACCCAGG");
@@ -663,10 +662,12 @@ TEST_CASE("Hmm Aligner produces correct alignment when it starts with a single b
     const Path& path = aln.path();
     // maps to 3 nodes
     REQUIRE(path.mapping_size() == 3);
+    
 
 }
 // 
 // TODO test when read doesn't align to first base in first node (start deletion)
+// TODO test when read ends with deletion
 // TODO test when the read is soft clipped (ends with insertion)
 // TODO N-match
 //

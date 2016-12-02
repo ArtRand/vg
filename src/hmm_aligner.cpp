@@ -100,22 +100,6 @@ void HmmAligner::PrintAlignedPairs() {
 }
 
 void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId, bool ragged_end) {
-    if (!ragged_end) {
-        st_uglyf("SENTINAL doing global alignment\n");
-    } else { 
-        st_uglyf("SENTINAL doing local alignment\n");
-    }
-    aln.clear_path();
-    aln.set_score(hmm_graph.PathScores()[pId] * PAIR_ALIGNMENT_PROB_1);
-    //
-    // NOTE gssw_aligner sets the alignment `query_position` to 0 here, I'm not sure what that is 
-    // supposed to do, so I don't set that member, but should remember that it's NOT set
-    //
-    Path *aln_path    = aln.mutable_path();               // an Alignment has one Path, so get that
-    string& read_seq  = *aln.mutable_sequence();
-    auto mapped_pairs = mapAlignedPairsToVgNodes(pId);    // the aligned pairs mapped to the vg nodes
-    auto vertex_path  = hmm_graph.PathMap()[pId];         // the vertex IDs (in order) for this path
-
     // helper functions for modifying the alignment 
     auto do_insert = [] (Mapping *mapping, std::string& read_sequence, int64_t x, int64_t pX) {
         Edit *ed = mapping->add_edit();
@@ -168,14 +152,26 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId, 
             st_uglyf(" just a MATCH\n");
         }
     };
+    // Main part of function starts here!
+    aln.clear_path();
+    aln.set_score(hmm_graph.PathScores()[pId] * PAIR_ALIGNMENT_PROB_1);
+    //
+    // NOTE gssw_aligner sets the alignment `query_position` to 0 here, I'm not sure what that is 
+    // supposed to do, so I don't set that member, but should remember that it's NOT set
+    //
+
+    Path *aln_path    = aln.mutable_path();               // an Alignment has one Path, so get that
+    string& read_seq  = *aln.mutable_sequence();
+    auto mapped_pairs = mapAlignedPairsToVgNodes(pId);    // the aligned pairs mapped to the vg nodes
+    auto vertex_path  = hmm_graph.PathMap()[pId];         // the vertex IDs (in order) for this path
 
     // 
     // first need to find fist vertex with an aligned pair in this path and set that to the 'start'
     // of the alignment slice the vertex path to the first (and last?) vertex that has aligned pairs
     // TODO TODO
     //
-    
-    int64_t pX = 0;                                       // previous matching X (read coordinate)
+ 
+    int64_t pX = -1;                                      // previous matching X (read coordinate)
     for (int64_t vid : vertex_path) {
         st_uglyf("SENTINAL: looking at vertex %lld (vg node: %lld)\n", vid, vertexId_to_nodeId[vid]);
         int64_t vg_node_id              = vertexId_to_nodeId[vid];
@@ -193,27 +189,30 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId, 
             st_uglyf("after adding edits mapping:\n%s\n", mapp->DebugString().c_str());
             continue;
         }
-        // the first alined pair offset to set the position offset
-        int64_t fY = std::get<2>(node_aligned_pairs.at(0));
+        int64_t fY = std::get<2>(node_aligned_pairs.at(0));  // first node sequence aligned-to position
         st_uglyf("fY: %lld\n", fY);
         assert(fY >= 0 && fY < static_cast<int>(node_seq.size()));
-        if (fY != 0) {  // there is a leading delete
-            if (vid == vertex_path.at(0)) {  // we're at the first vertex
-                st_uglyf("SENTINAL - leading delete at first node!\n");
-                exit(1);
+        if (fY != 0) {                                       // there is a leading delete
+            if (vid == vertex_path.at(0)) {                  // we're at the first vertex
+                //
+                // TODO need some logic here to decide about global/local alignment
+                // maybe `&& !global`
+                //
+                throw ParcoursException("[HmmAligner::makeAlignmentFromPathAlignedPairs] "
+                                        "leading node delete not implemented");
             }
             mapp->mutable_position()->set_offset(0);  // not at first node, so start at 0th position
-            do_delete(mapp, fY);
+            do_delete(mapp, fY);                      
         } else {
             mapp->mutable_position()->set_offset(0);
         }
-        //mapp->set_rank(aln_path->mapping_size());         // set this mapping's rank (order in mappings)
+        // first aligned-to position in the read, for this vertex
+        //int64_t fX = std::get<1>(node_aligned_pairs.at(0)); 
+        //if (``)
         st_uglyf("before adding edits mapping:\n%s\n", mapp->DebugString().c_str());
         // add the aligned pairs (as edits) 
         //int64_t pY = 0;                                   // previous offset that matched
         int64_t pY = std::get<2>(node_aligned_pairs.at(0));
-        int64_t mL = 0;                                   // match length
-
         for (AlignedPair& pr : node_aligned_pairs) {
             int64_t x = std::get<1>(pr);                  // read coordinate
             int64_t y = std::get<2>(pr);                  // offset in node
@@ -226,14 +225,13 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId, 
             do_pair(mapp, node_seq, read_seq, x, y);
             pX = x;
             pY = y;
-            ++mL;
         }
         st_uglyf("SENTINAL - final pY %lld, node seq length %d\n", pY, node_seq.size() - 1);
         
         // deal with deletes at the end of non-terminal nodes 
         // note: node_seq.size() - 1 = the number of aligned pairs you'd get if you had 
         // perfect matching
-        if ((pY != static_cast<int>(node_seq.size()) - 1) && (vid != vertex_path.back())) {
+        if ((pY != static_cast<int>(node_seq.size()) - 1)) {
             int64_t delete_length = (node_seq.size() - 1) - pY;
             do_delete(mapp, delete_length);
         }
