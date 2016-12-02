@@ -30,6 +30,24 @@ static inline void CheckMappingPairs(const Path& path, int64_t mapping_idx, int6
     }
 }
 
+static inline void CheckForGlobalAlignment(const Path& path, Node *final_node) {
+    // alignment must start at first position in first node
+    REQUIRE(path.mapping(0).position().offset() == 0);
+    auto final_mapping = [&path] () -> const Mapping * {
+        int64_t idx = -1;
+        const Mapping *m;
+        for (int64_t i = 0; i < path.mapping_size(); ++i) {
+            REQUIRE(path.mapping(i).rank() != idx);
+            if (path.mapping(i).rank() > idx) {
+                idx = path.mapping(i).rank();
+                m = &path.mapping(i);
+            }
+        }
+        return m;
+    }();
+    REQUIRE(mapping_from_length(*final_mapping) == final_node->sequence().size());
+}
+
 TEST_CASE( "HmmAligner setup tests", "[hmm]" ) {
     SECTION( "HMM aligner makes correct HmmGraph with all normal edges" ) {
         VG graph;
@@ -114,7 +132,7 @@ TEST_CASE( "Hmm aligner produces correct alignment when read matches exactly (ma
     
     // has correct number of mappings (nodes mapped to)
     REQUIRE(path.mapping_size() == 3);
-
+    CheckForGlobalAlignment(path, vid3);
     // follows correct path
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
@@ -157,6 +175,7 @@ TEST_CASE("Hmm aligner produces correct alignment when there is a mismatch", "[h
     const Path& path = aln.path();
 
     REQUIRE(path.mapping_size() == 3);
+    CheckForGlobalAlignment(path, vid3);
     // check the correct number of edits
     REQUIRE(path.mapping(0).edit_size() == 4);
     REQUIRE(path.mapping(1).edit_size() == 1);
@@ -215,6 +234,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a single base de
     const Path& path = aln.path();
     // maps to 3 nodes
     REQUIRE(path.mapping_size() == 3);
+    CheckForGlobalAlignment(path, vid3);
     // follows correct path
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
@@ -281,6 +301,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base del
     const Path& path = aln.path();
     // maps to 3 nodes
     REQUIRE(path.mapping_size() == 3);
+    CheckForGlobalAlignment(path, vid3);
     // follows correct path
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
@@ -343,6 +364,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a single base in
     const Path& path = aln.path();
     // maps to 3 nodes
     REQUIRE(path.mapping_size() == 3);
+    CheckForGlobalAlignment(path, vid3);
     // follows correct path
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
@@ -412,6 +434,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a multi-base ins
     const Path& path = aln.path();
     // maps to 3 nodes
     REQUIRE(path.mapping_size() == 3);
+    CheckForGlobalAlignment(path, vid3);
     // follows correct path
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
@@ -476,6 +499,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a whole node del
     const Path& path = aln.path();
     // maps to 3 nodes
     REQUIRE(path.mapping_size() == 3);
+    CheckForGlobalAlignment(path, vid3);
     // follows correct path
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
@@ -519,6 +543,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that 
     const Path& path = aln.path();
     // maps to 3 nodes
     REQUIRE(path.mapping_size() == 3);
+    CheckForGlobalAlignment(path, vid3);
     // follows correct path
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
@@ -557,7 +582,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when there is a deletion that 
 }
 
 TEST_CASE("Hmm Aligner produces correct alignment when the read doesn't span the entire graph", 
-        "[hmm]") {
+        "[hmm][current]") {
     VG graph;
     
     Node* vid0 = graph.create_node("AAGTAGCA");
@@ -586,6 +611,9 @@ TEST_CASE("Hmm Aligner produces correct alignment when the read doesn't span the
     const Path& path = aln.path();
     // maps to 3 nodes
     REQUIRE(path.mapping_size() == 3);
+    //
+    // TODO fix global alignment edits
+    //
     // follows correct path
     REQUIRE(path.mapping(0).position().node_id() == vid0->id());
     REQUIRE(path.mapping(1).position().node_id() == vid2->id());
@@ -594,7 +622,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when the read doesn't span the
     CheckMappingPairs(path, 0, vid0->sequence().size());
     CheckMappingPairs(path, 1, vid2->sequence().size());
     // the last mapping should only contain 3 edits, to the first three bases
-    REQUIRE(path.mapping(2).edit_size() == 3);
+    REQUIRE(path.mapping(2).edit_size() == vid3->sequence().size());
     REQUIRE(path.mapping(2).edit(0).from_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(2).edit(0).to_length() == ALIGNED_PAIR_LENGTH);
     REQUIRE(path.mapping(2).edit(0).sequence().empty());
@@ -607,7 +635,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when the read doesn't span the
 }
 
 TEST_CASE("Hmm Aligner produces correct alignment when it starts with a single base insertion", 
-          "[current]") {
+          "") {
     VG graph;
     
     Node* vid0 = graph.create_node("AACCCAGG");
@@ -627,10 +655,10 @@ TEST_CASE("Hmm Aligner produces correct alignment when it starts with a single b
     p.threshold   = 0.6;
     p.ignore_gaps = false;
                        // -AACCCAGGATTAGAAGT
-    string read = string("NAACCCAGGATATGAAGT");
+    string read = string("TAACCCAGGATATGAAGT");
     Alignment aln;
     aln.set_sequence(read);
-    hmm.Align(aln, nullptr, p, true, true);
+    hmm.Align(aln, nullptr, p, true, false);
     
     const Path& path = aln.path();
     // maps to 3 nodes
