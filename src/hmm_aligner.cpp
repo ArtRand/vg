@@ -192,20 +192,15 @@ void HmmAligner::makeAlignmentFromPathAlignedPairs(Alignment& aln, int64_t pId, 
         int64_t fY = std::get<2>(node_aligned_pairs.at(0));  // first node sequence aligned-to position
         st_uglyf("fY: %lld\n", fY);
         assert(fY >= 0 && fY < static_cast<int>(node_seq.size()));
-        if (fY != 0) {                                       // there is a leading delete
-            if (vid == vertex_path.at(0)) {                  // we're at the first vertex
-                //
-                // TODO need some logic here to decide about global/local alignment
-                // maybe `&& !global`
-                //
-                throw ParcoursException("[HmmAligner::makeAlignmentFromPathAlignedPairs] "
-                                        "leading node delete not implemented");
-            }
-            mapp->mutable_position()->set_offset(0);  // not at first node, so start at 0th position
+        mapp->mutable_position()->set_offset(0);  // we default to global alignment, see note below
+        if (fY != 0) {                            // there is a leading delete
+            //
+            // NOTE need some logic here to decide about global/local alignment
+            // if we're at the first vertex, might want to start the alignment
+            // at the first aligned pair and not at the 0th position
+            //
             do_delete(mapp, fY);                      
-        } else {
-            mapp->mutable_position()->set_offset(0);
-        }
+        } 
         // first aligned-to position in the read, for this vertex
         //int64_t fX = std::get<1>(node_aligned_pairs.at(0)); 
         //if (``)

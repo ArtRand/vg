@@ -29,7 +29,7 @@ namespace vg {
 
         // Aligns the sequence in aln to the graph, if path_alignments != nullptr
         // then it adds alignments from all paths, otherwise it just adds the 
-        // highest scoring path (TODO add get_pairs into AlignmentParameters?)
+        // highest scoring path 
         void Align(Alignment& aln, std::vector<Alignment>* path_alignments, AlignmentParameters& p, 
                    bool get_pairs=true, bool ragged_end=false);
 
