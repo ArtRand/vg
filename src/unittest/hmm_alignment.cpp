@@ -814,7 +814,50 @@ TEST_CASE("Hmm Aligner produces correct alignment when it starts with a multi-ba
 }
 
 TEST_CASE("Hmm Aligner produces correct alignment when it starts not at the first node", 
-          "[current]") {
+          "[hmm]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("AA");
+    Node* vid1 = graph.create_node("CCCAGGCA");
+    Node* vid2 = graph.create_node("GTGCTATA");
+    Node* vid3 = graph.create_node("TGAAGT");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                      // 
+    string read = string("CCCAGGCATGAAGT");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true, false);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+    // follows correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid1->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    CheckForGlobalAlignment(path, vid3);
+    REQUIRE(path.mapping(0).edit_size() == 1);
+    REQUIRE(path.mapping(0).edit(0).from_length() == 2);
+    REQUIRE(path.mapping(0).edit(0).to_length() == 0);
+    REQUIRE(path.mapping(0).edit(0).sequence().empty());
+    // test the rest of the edits
+    CheckMappingPairs(path, 1, vid1->sequence().size());
+    CheckMappingPairs(path, 2, vid3->sequence().size());
+}
+
+TEST_CASE("Hmm Aligner produces correct alignment when it begins with a deletion that crosses a node boundary", 
+          "[hmm]") {
     VG graph;
     
     Node* vid0 = graph.create_node("AA");
@@ -847,7 +890,62 @@ TEST_CASE("Hmm Aligner produces correct alignment when it starts not at the firs
     REQUIRE(path.mapping(1).position().node_id() == vid1->id());
     REQUIRE(path.mapping(2).position().node_id() == vid3->id());
     CheckForGlobalAlignment(path, vid3);
+    // has the correct edits, should skip fitst node and first position in second node
+    REQUIRE(path.mapping(0).edit_size() == 1);
+    REQUIRE(path.mapping(0).edit(0).from_length() == 2);
+    REQUIRE(path.mapping(0).edit(0).to_length() == 0);
+    REQUIRE(path.mapping(0).edit(0).sequence().empty());
+    REQUIRE(path.mapping(1).edit_size() == vid1->sequence().size());
+    REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+    REQUIRE(path.mapping(1).edit(0).to_length() == 0);
+    REQUIRE(path.mapping(1).edit(0).sequence().empty());
+    for (int64_t i = 1; i < vid1->sequence().size(); ++i) {
+        REQUIRE(path.mapping(1).edit(i).from_length() == ALIGNED_PAIR_LENGTH);
+        REQUIRE(path.mapping(1).edit(i).to_length() == ALIGNED_PAIR_LENGTH);
+        REQUIRE(path.mapping(1).edit(i).sequence().empty());
+    }
+    CheckMappingPairs(path, 2, vid3->sequence().size());
 }
+
+TEST_CASE("Hmm Aligner produces correct alignment when it begins with a deletion that ends at a node boundary", 
+          "[hmm]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("A");
+    Node* vid1 = graph.create_node("C");
+    
+    graph.create_edge(vid0, vid1);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                      // 
+    string read = string("C");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true, false);
+    
+    const Path& path = aln.path();
+    REQUIRE(path.mapping_size() == 2);
+    CheckForGlobalAlignment(path, vid1);
+    // correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid1->id());
+    // correct edits
+    REQUIRE(path.mapping(0).edit_size() == 1);
+    REQUIRE(path.mapping(0).edit(0).from_length() == 1);
+    REQUIRE(path.mapping(0).edit(0).to_length() == 0);
+    REQUIRE(path.mapping(0).edit(0).sequence().empty());
+    REQUIRE(path.mapping(1).edit_size() == 1);
+    REQUIRE(path.mapping(1).edit(0).from_length() == 1);
+    REQUIRE(path.mapping(1).edit(0).to_length() == 1);
+    REQUIRE(path.mapping(1).edit(0).sequence().empty());
+
+}
+
 // 
 // TODO test when read ends with big mismatch
 // TODO test when the read is soft clipped (ends with insertion)
