@@ -680,7 +680,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when it starts with a single b
 }
 
 TEST_CASE("Hmm Aligner produces correct alignment when it starts with a multi-base insertion", 
-          "[current][hmm]") {
+          "[hmm]") {
     VG graph;
     
     Node* vid0 = graph.create_node("AACCCAGG");
@@ -723,6 +723,42 @@ TEST_CASE("Hmm Aligner produces correct alignment when it starts with a multi-ba
     }
     CheckMappingPairs(path, 1, vid2->sequence().size());
     CheckMappingPairs(path, 2, vid3->sequence().size());
+}
+
+TEST_CASE("Hmm Aligner produces correct alignment when it starts with a single base deletion", 
+          "[hmm]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("AACCCAGG");
+    Node* vid1 = graph.create_node("CA");
+    Node* vid2 = graph.create_node("ATA");
+    Node* vid3 = graph.create_node("TGAAGT");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                      // AACCCAGGATTAGAAGT
+    string read = string("ACCCAGGATATGAAGT");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true, false);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+    // follows correct path
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid2->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    CheckForGlobalAlignment(path, vid3);
 }
 // 
 // TODO test when read doesn't align to first base in first node (start deletion)
