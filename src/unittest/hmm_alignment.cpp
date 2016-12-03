@@ -899,7 +899,7 @@ TEST_CASE("Hmm Aligner produces correct alignment when it begins with a deletion
     REQUIRE(path.mapping(1).edit(0).from_length() == 1);
     REQUIRE(path.mapping(1).edit(0).to_length() == 0);
     REQUIRE(path.mapping(1).edit(0).sequence().empty());
-    for (int64_t i = 1; i < vid1->sequence().size(); ++i) {
+    for (uint64_t i = 1; i < vid1->sequence().size(); ++i) {
         REQUIRE(path.mapping(1).edit(i).from_length() == ALIGNED_PAIR_LENGTH);
         REQUIRE(path.mapping(1).edit(i).to_length() == ALIGNED_PAIR_LENGTH);
         REQUIRE(path.mapping(1).edit(i).sequence().empty());
@@ -943,9 +943,68 @@ TEST_CASE("Hmm Aligner produces correct alignment when it begins with a deletion
     REQUIRE(path.mapping(1).edit(0).from_length() == 1);
     REQUIRE(path.mapping(1).edit(0).to_length() == 1);
     REQUIRE(path.mapping(1).edit(0).sequence().empty());
-
 }
 
+TEST_CASE("Hmm Aligner produces correct alignment when paths are different lengths", 
+        "[hmm]") {
+    VG graph;
+    
+    Node* vid0 = graph.create_node("TG");
+    Node* vid1 = graph.create_node("TGGC");
+    Node* vid2 = graph.create_node("AAA");
+    Node* vid3 = graph.create_node("AGT");
+    
+    graph.create_edge(vid0, vid1);
+    graph.create_edge(vid0, vid2);
+    graph.create_edge(vid1, vid3);
+    graph.create_edge(vid2, vid3);
+
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                    //    TGTGGCAGT
+    string read = string("TGTGGCAGT");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true, false);
+    
+    const Path& path = aln.path();
+    // maps to 3 nodes
+    REQUIRE(path.mapping_size() == 3);
+    // follows correct path
+    REQUIRE(path.mapping_size() == 3);
+    REQUIRE(path.mapping(0).position().node_id() == vid0->id());
+    REQUIRE(path.mapping(1).position().node_id() == vid1->id());
+    REQUIRE(path.mapping(2).position().node_id() == vid3->id());
+    CheckMappingPairs(path, 0, vid0->sequence().size());
+    CheckMappingPairs(path, 1, vid1->sequence().size());
+    CheckMappingPairs(path, 2, vid3->sequence().size());
+}
+/*
+TEST_CASE("Hmm Aligner produces correct alignment against a singleton graph", 
+          "[current][shouldfail]") {
+    VG graph;
+    st_uglyf("FOO\n"); 
+    Node* vid0 = graph.create_node("ACC");
+    
+    HmmAligner hmm(graph.graph);
+
+    AlignmentParameters p;
+    p.expansion   = 2;
+    p.threshold   = 0.6;
+    p.ignore_gaps = false;
+                      // 
+    string read = string("ACC");
+    Alignment aln;
+    aln.set_sequence(read);
+    hmm.Align(aln, nullptr, p, true, false);
+    
+    const Path& path = aln.path();
+}
+*/
 // 
 // TODO test when read ends with big mismatch
 // TODO test when the read is soft clipped (ends with insertion)
